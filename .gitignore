@@ -1,0 +1,11 @@
+[Slurm]
+slurm-*
+
+[Pycache]
+__pycache__
+
+[MacOS]
+.DS_Store
+
+[Bash script]
+*.sub
