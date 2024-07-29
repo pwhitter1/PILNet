@@ -4,11 +4,12 @@
 
 ## Dataset:
 
-### The QM Dataset for Atomic Multipoles is publicly accessible here: https://doi.org/10.3929/ethz-b-000509052.
-### The `data.hdf5` and `data_gdb.hdf5` dataset files must be downloaded separately to run our experiments.
-### Once downloaded, they can be placed in the `PILNet/src/datasets/` directory.<br>
+The QM Dataset for Atomic Multipoles is publicly accessible here: https://doi.org/10.3929/ethz-b-000509052.<br>
+The `data.hdf5` and `data_gdb.hdf5` dataset files must be downloaded separately to run our experiments.<br>
+Once downloaded, they can be placed in the `PILNet/src/datasets/` directory.<br>
 
-### Following this, you can run the sample program as `python run_example.py`, which will execute the full PIL-Net machine learning pipeline, including data preprocessing, model training, and model inference.
+Following this, you can run the sample program as `python run_example.py`, which will execute the full PIL-Net machine learning pipeline,<br>
+including data preprocessing, model training, and model inference.
 
 ## PIL-Net Files:
 
