@@ -37,8 +37,8 @@ def load_format_datasets(
     # Convert graph data/labels to have specified precision
     batch_traingraphs = convert_to_model_precision(batch_traingraphs, model_precision)
     # Detrace the quadrupole and octupole labels
-    batch_traingraphs = detrace_quadrupole_vector(batch_traingraphs)
-    batch_traingraphs = detrace_octupole_vector(batch_traingraphs)
+    batch_traingraphs = detrace_atomic_quadrupole_labels(batch_traingraphs)
+    batch_traingraphs = detrace_atomic_octupole_labels(batch_traingraphs)
 
     # Compute the multipole loss function weights
     monopole_iqr = get_loss_func_weight(batch_traingraphs.ndata["label_monopoles"])
@@ -69,8 +69,8 @@ def load_format_datasets(
         batch_validationgraphs, model_precision
     )
     # Detrace the quadrupole and octupole labels
-    batch_validationgraphs = detrace_quadrupole_vector(batch_validationgraphs)
-    batch_validationgraphs = detrace_octupole_vector(batch_validationgraphs)
+    batch_validationgraphs = detrace_atomic_quadrupole_labels(batch_validationgraphs)
+    batch_validationgraphs = detrace_atomic_octupole_labels(batch_validationgraphs)
 
     batch_validationgraphs = batch_validationgraphs.to(device)
     validationgraphs = dgl.unbatch(batch_validationgraphs)
@@ -126,35 +126,64 @@ def convert_to_model_precision(
     batch_graphs.ndata["relative_coordinates"] = batch_graphs.ndata[
         "relative_coordinates"
     ].to(model_precision)
-    batch_graphs.ndata["molecular_dipole"] = batch_graphs.ndata["molecular_dipole"].to(
-        model_precision
-    )
 
     return batch_graphs
 
-
-def detrace_quadrupole_vector(graphs: dgl.DGLGraph) -> dgl.DGLGraph:
-    """Detrace quadrupole labels. Each vector is organized as: xx xy xz yy yz zz."""
-
+def detrace_quadrupoles(quadrupoles: torch.tensor) -> torch.tensor:
+    """Detrace quadrupoles. 
+        Each row is organized as: xx xy xz yy yz zz."""
+    
     inds = [0, 3, 5]
-    trace = torch.sum(graphs.ndata["label_quadrupoles"][:, inds], dim=1)
+    trace = torch.sum(quadrupoles[:, inds], dim=1)
 
-    graphs.ndata["label_quadrupoles"][:, 0] -= trace / 3
-    graphs.ndata["label_quadrupoles"][:, 3] -= trace / 3
-    graphs.ndata["label_quadrupoles"][:, 5] -= trace / 3
+    quadrupoles[:, 0] -= trace / 3
+    quadrupoles[:, 3] -= trace / 3
+    quadrupoles[:, 5] -= trace / 3
+
+    return quadrupoles
+
+def detrace_atomic_quadrupole_labels(graphs: dgl.DGLGraph) -> dgl.DGLGraph:
+    """Detrace atomic quadrupole labels from DGL graphs. 
+        Each vector is organized as: xx xy xz yy yz zz."""
+
+    # inds = [0, 3, 5]
+    # trace = torch.sum(graphs.ndata["label_quadrupoles"][:, inds], dim=1)
+
+    # graphs.ndata["label_quadrupoles"][:, 0] -= trace / 3
+    # graphs.ndata["label_quadrupoles"][:, 3] -= trace / 3
+    # graphs.ndata["label_quadrupoles"][:, 5] -= trace / 3
+
+    quadrupoles = detrace_quadrupoles(graphs.ndata["label_quadrupoles"])
+    graphs.ndata["label_quadrupoles"] = quadrupoles
 
     return graphs
 
-
-def detrace_octupole_vector(graphs: dgl.DGLGraph) -> dgl.DGLGraph:
-    """Detrace octupole labels. Each vector is organized as: xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz."""
-
+def detrace_octupoles(octupoles: torch.tensor) -> torch.tensor:
+    """Detrace octupoles. 
+        Each row is organized as: xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz."""
+    
     inds = [0, 6, 9]
-    trace = torch.sum(graphs.ndata["label_octupoles"][:, inds], dim=1)
+    trace = torch.sum(octupoles[:, inds], dim=1)
 
-    graphs.ndata["label_octupoles"][:, 0] -= trace / 3
-    graphs.ndata["label_octupoles"][:, 6] -= trace / 3
-    graphs.ndata["label_octupoles"][:, 9] -= trace / 3
+    octupoles[:, 0] -= trace / 3
+    octupoles[:, 6] -= trace / 3
+    octupoles[:, 9] -= trace / 3
+
+    return octupoles
+
+def detrace_atomic_octupole_labels(graphs: dgl.DGLGraph) -> dgl.DGLGraph:
+    """Detrace atomic octupole labels from DGL graphs. 
+        Each vector is organized as: xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz."""
+
+    # inds = [0, 6, 9]
+    # trace = torch.sum(graphs.ndata["label_octupoles"][:, inds], dim=1)
+
+    # graphs.ndata["label_octupoles"][:, 0] -= trace / 3
+    # graphs.ndata["label_octupoles"][:, 6] -= trace / 3
+    # graphs.ndata["label_octupoles"][:, 9] -= trace / 3
+
+    octupoles = detrace_octupoles(graphs.ndata["label_octupoles"])
+    graphs.ndata["label_octupoles"] = octupoles
 
     return graphs
 

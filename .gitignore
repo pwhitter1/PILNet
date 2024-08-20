@@ -1,5 +1,6 @@
 [Slurm]
 slurm-*
+saved_slurmfiles/*
 
 [Pycache]
 __pycache__
@@ -9,3 +10,7 @@ __pycache__
 
 [Bash script]
 *.sub
+
+[PSI4]
+*.clean
+*.dat

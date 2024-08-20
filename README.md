@@ -8,7 +8,7 @@ The QM Dataset for Atomic Multipoles is publicly accessible here: https://doi.or
 The `data.hdf5` and `data_gdb.hdf5` dataset files must be downloaded separately to run our experiments.<br>
 Once downloaded, they can be placed in the `PILNet/src/datasets/` directory.<br>
 
-Following this, you can run the sample program as `python run_example.py`, which will execute the full PIL-Net machine learning pipeline,<br>
+Following this, you can run the sample program as `python run_example.py`, which will execute the full PIL-Net machine learning pipeline,
 including data preprocessing, model training, and model inference.
 
 ## PIL-Net Files:
@@ -30,6 +30,8 @@ Read in dataset information, extract features, and save each molecule representa
 
 ### 2. PILNet/src/preprocessing/SplitData_NormalizeFeatures.py
 Separate data into train/validation/test set splits and normalize features.
+
+** ComputeReferenceMultipoles.py **
 
 ### 3. PILNet/src/training/TrainNetwork.py
 Train a PILNet model using the training and validation dataset splits.
@@ -94,8 +96,8 @@ Their collective predictive error will be averaged.
 
 `h5py==3.7.0`
 
-`dgl==0.9.1.post1 dgllife==0.3.2`
-
-`psi4== ???`
+`dgl==0.9.1 dgllife==0.3.2`
 
 `torch==1.12.1 torchaudio==0.12.1 torchsummary==1.5.1 torchvision==0.13.1`
+
+`psi4==1.9.1`
