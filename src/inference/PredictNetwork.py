@@ -1,3 +1,6 @@
+"""Use the trained PILNet model(s) to predict the test set labels.
+"""
+
 import numpy as np
 import torch
 
@@ -7,9 +10,13 @@ from dgl.data.utils import load_graphs
 import os
 import math
 import copy
-import argparse
 
-from ..training.TrainNetwork import detrace_atomic_quadrupole_labels, detrace_atomic_octupole_labels, detrace_quadrupoles, detrace_octupoles
+from ..training.TrainNetwork import (
+    detrace_atomic_quadrupole_labels,
+    detrace_atomic_octupole_labels,
+    detrace_quadrupoles,
+    detrace_octupoles,
+)
 from ..neuralnetwork.PILNet import PILNet
 
 
@@ -22,44 +29,46 @@ def load_format_dataset(
     batch_testgraphs = dgl.batch(testgraphs)
 
     # Convert graph data/labels to have specified precision
-    batch_testgraphs.ndata["nfeats"] = batch_testgraphs.ndata["nfeats"].to(
+    batch_testgraphs.ndata["nfeats"] = batch_testgraphs.ndata["nfeats"].to(  # type: ignore
         model_precision
     )
-    batch_testgraphs.edata["efeats"] = batch_testgraphs.edata["efeats"].to(
+    batch_testgraphs.edata["efeats"] = batch_testgraphs.edata["efeats"].to(  # type: ignore
         model_precision
     )
 
     batch_testgraphs.ndata["label_monopoles"] = batch_testgraphs.ndata[
         "label_monopoles"
-    ].to(model_precision)
+    ].to(model_precision)  # type: ignore
     batch_testgraphs.ndata["label_dipoles"] = batch_testgraphs.ndata[
         "label_dipoles"
-    ].to(model_precision)
+    ].to(model_precision)  # type: ignore
     batch_testgraphs.ndata["label_quadrupoles"] = batch_testgraphs.ndata[
         "label_quadrupoles"
-    ].to(model_precision)
+    ].to(model_precision)  # type: ignore
     batch_testgraphs.ndata["label_octupoles"] = batch_testgraphs.ndata[
         "label_octupoles"
-    ].to(model_precision)
+    ].to(model_precision)  # type: ignore
 
-    batch_testgraphs.ndata["coordinates"] = batch_testgraphs.ndata["coordinates"].to(
+    batch_testgraphs.ndata["coordinates"] = batch_testgraphs.ndata[
+        "coordinates"
+    ].to(  # type: ignore
         model_precision
     )
     batch_testgraphs.ndata["relative_coordinates"] = batch_testgraphs.ndata[
         "relative_coordinates"
-    ].to(model_precision)
+    ].to(model_precision)  # type: ignore
 
     batch_testgraphs.ndata["molecular_dipole"] = batch_testgraphs.ndata[
         "molecular_dipole"
-    ].to(model_precision)
+    ].to(model_precision)  # type: ignore
 
     batch_testgraphs.ndata["molecular_quadrupole"] = batch_testgraphs.ndata[
         "molecular_quadrupole"
-    ].to(model_precision)
+    ].to(model_precision)  # type: ignore
 
     batch_testgraphs.ndata["molecular_octupole"] = batch_testgraphs.ndata[
         "molecular_octupole"
-    ].to(model_precision)
+    ].to(model_precision)  # type: ignore
 
     # Detrace the quadrupole and octupole labels
     batch_testgraphs = detrace_atomic_quadrupole_labels(batch_testgraphs)
@@ -78,12 +87,12 @@ def load_test_dataset(test_path: str) -> list:
     return testgraphs
 
 
-def compute_MAE(true: np.ndarray, pred: np.ndarray) -> float:
+def compute_MAE(true: np.ndarray, pred: np.ndarray) -> np.ndarray:
     """Compute mean absolute error."""
-    return np.mean((abs(true - pred)))
+    return np.mean((abs(true - pred)))  # type: ignore
 
 
-def compute_R2(true: np.ndarray, pred: np.ndarray) -> float:
+def compute_R2(true: np.ndarray, pred: np.ndarray) -> np.ndarray:
     """Compute coefficient of determination."""
     RSS = np.sum((true - pred) ** 2)
     mean_true = np.mean(true, axis=0)
@@ -92,14 +101,16 @@ def compute_R2(true: np.ndarray, pred: np.ndarray) -> float:
     return 1 - (RSS / TSS)
 
 
-def compute_RMSD(true: np.ndarray, pred: np.ndarray) -> float:
+def compute_RMSD(true: np.ndarray, pred: np.ndarray) -> np.ndarray:
     """Compute root mean squared deviation."""
-    return np.sqrt(np.mean((true - pred)**2))
+    return np.sqrt(np.mean((true - pred) ** 2))
 
 
 def print_testing_statistics(
     true: np.ndarray, pred: np.ndarray
-) -> tuple[float, float, float, float, float, float, float]:
+) -> tuple[
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
+]:
     """Return statistical information about the true and predicted labels."""
 
     MAE = compute_MAE(true, pred)
@@ -121,7 +132,8 @@ def conv_one_hot_to_bytes(onehot: torch.Tensor, element_types: list) -> bytes:
             return element_types[i]
 
     raise ValueError(
-        f"The one-hot pattern {onehot} does not exist within the pre-defined element types list: {element_types}"
+        f"The one-hot pattern {onehot} does not exist"
+        f" within the pre-defined element types list: {element_types}"
     )
 
 
@@ -131,7 +143,7 @@ def element_specific_statistics(
     nfeats: np.ndarray,
     element_types: list,
     target_elem: bytes,
-) -> tuple[float, float]:
+) -> tuple[np.ndarray | float, np.ndarray | float]:
     """Obtain element-specific MAE and R2 between reference and predicted labels."""
 
     elem_true_labels = np.zeros(0)
@@ -162,11 +174,10 @@ def element_specific_statistics(
 
 
 def get_reference_molecular_moments(
-    testbgs: dgl.DGLGraph, 
-    label_name: str
-) -> torch.tensor:
-    '''Obtain the reference multipole moments from
-        stored information from the dataset through reformatting.'''
+    testbgs: dgl.DGLGraph, label_name: str
+) -> torch.Tensor:
+    """Obtain the reference multipole moments from
+    stored information from the dataset through reformatting."""
 
     batch_num_nodes = testbgs.batch_num_nodes()
     sum_batch_num_nodes = copy.deepcopy(batch_num_nodes)
@@ -176,26 +187,21 @@ def get_reference_molecular_moments(
         sum_batch_num_nodes[j] = running_sum
         running_sum += batch_num_nodes[j]
 
-    true_multipole_value = (
-        testbgs.ndata[label_name][sum_batch_num_nodes, :]
-    )
+    true_multipole_value = testbgs.ndata[label_name][sum_batch_num_nodes, :]
 
     return true_multipole_value
-    
+
 
 def sum_approximation_contributions(
-    testbgs: dgl.DGLGraph, 
-    atomic_multipole_lower_order: torch.tensor, 
-    atomic_multipole_higher_order: torch.tensor, 
-) -> torch.tensor:
+    testbgs: dgl.DGLGraph, atomic_multipole_contribution: torch.Tensor
+) -> torch.Tensor:
     """Serve as helper function for approximating
-        the molecular multipole moments."""
+    the molecular multipole moments."""
 
-    # Sum over the lower- and higher-order contributions
-    testbgs.ndata["approx_molecular_moment"] = atomic_multipole_lower_order + atomic_multipole_higher_order
+    testbgs.ndata["approx_molecular_moment"] = atomic_multipole_contribution
 
-    # Sum over all the atoms' molecular moment contributions
-        # to obtain a single molecular moment vector per molecule
+    # Sum over all the atoms' multipole moment contributions
+    # to obtain a single molecular moment vector per molecule
     pred_molecular_moment = dgl.readout_nodes(
         graph=testbgs, feat="approx_molecular_moment", op="sum"
     )
@@ -204,34 +210,37 @@ def sum_approximation_contributions(
 
 
 def approximate_molecular_dipole_moment(
-    testbgs: dgl.DGLGraph, 
-    atomic_monopoles: torch.tensor, 
-    atomic_dipoles: torch.tensor, 
-    relative_coordinates: torch.tensor
-) -> torch.tensor:
-    """Approximate the molecular dipole moment as a function of 
-        its corresponding atomic dipoles, atomic monopoles,
-        and atomic relative coordinates."""
+    testbgs: dgl.DGLGraph,
+    atomic_monopoles: torch.Tensor,
+    atomic_dipoles: torch.Tensor,
+    relative_coordinates: torch.Tensor,
+) -> torch.Tensor:
+    """Approximate the molecular dipole moment as a function of
+    its corresponding atomic monopoles,
+    and atomic relative coordinates."""
 
     # Multiply atomic multipoles by atomic relative coordinates
     monopole_contribution = (
         torch.reshape(atomic_monopoles, (-1, 1)) * relative_coordinates
     )
 
-    molecular_dipole_moment = sum_approximation_contributions(testbgs, monopole_contribution, atomic_dipoles)
+    dipole_contribution = atomic_dipoles + monopole_contribution
+
+    molecular_dipole_moment = sum_approximation_contributions(
+        testbgs, dipole_contribution
+    )
     return molecular_dipole_moment
 
 
 def approximate_molecular_quadrupole_moment(
-    testbgs: dgl.DGLGraph, 
-    atomic_monopoles: torch.tensor, 
-    atomic_quadrupoles: torch.tensor, 
-    relative_coordinates: torch.tensor,
-    device: torch.device
-) -> torch.tensor:
-    """Approximate the molecular quadrupole moment as a function of 
-        its corresponding atomic quadrupoles, atomic dipoles,
-        and atomic relative coordinates."""
+    testbgs: dgl.DGLGraph,
+    atomic_monopoles: torch.Tensor,
+    relative_coordinates: torch.Tensor,
+    device: torch.device,
+) -> torch.Tensor:
+    """Approximate the molecular quadrupole moment as a function of
+    its corresponding atomic quadrupoles
+    and atomic relative coordinates."""
 
     # Final quadrupole vector is represented as xx, xy, xz, yy, yz, zz.
     monopole_contribution = torch.zeros((len(atomic_monopoles), 6)).to(device)
@@ -242,29 +251,31 @@ def approximate_molecular_quadrupole_moment(
     ry = relative_coordinates[:, 1]
     rz = relative_coordinates[:, 2]
 
-    monopole_contribution[:, 0] = q * rx * rx
-    monopole_contribution[:, 1] = q * rx * ry
-    monopole_contribution[:, 2] = q * rx * rz
-    monopole_contribution[:, 3] = q * ry * ry
-    monopole_contribution[:, 4] = q * ry * rz
-    monopole_contribution[:, 5] = q * rz * rz
-  
-    molecular_quadrupole_moment = sum_approximation_contributions(testbgs, monopole_contribution, atomic_quadrupoles)
-    molecular_quadrupole_moment = detrace_quadrupoles(molecular_quadrupole_moment)
-    
+    dotprod = torch.einsum("ij,ij->i", relative_coordinates, relative_coordinates)
+
+    monopole_contribution[:, 0] = q * ((1.5 * rx * rx) - (0.5 * dotprod))
+    monopole_contribution[:, 1] = q * (1.5 * rx * ry)
+    monopole_contribution[:, 2] = q * (1.5 * rx * rz)
+    monopole_contribution[:, 3] = q * ((1.5 * ry * ry) - (0.5 * dotprod))
+    monopole_contribution[:, 4] = q * (1.5 * ry * rz)
+    monopole_contribution[:, 5] = q * ((1.5 * rz * rz) - (0.5 * dotprod))
+
+    molecular_quadrupole_moment = sum_approximation_contributions(
+        testbgs, monopole_contribution
+    )
+
     return molecular_quadrupole_moment
 
 
 def approximate_molecular_octupole_moment(
-    testbgs: dgl.DGLGraph, 
-    atomic_monopoles: torch.tensor, 
-    atomic_octupoles: torch.tensor, 
-    relative_coordinates: torch.tensor,
-    device: torch.device
-) -> torch.tensor:
-    """Approximate the molecular octupole moment as a function of 
-        its corresponding atomic octupoles, atomic quadrupoles,
-        and atomic relative coordinates."""
+    testbgs: dgl.DGLGraph,
+    atomic_monopoles: torch.Tensor,
+    relative_coordinates: torch.Tensor,
+    device: torch.device,
+) -> torch.Tensor:
+    """Approximate the molecular octupole moment as a function of
+    its corresponding atomic monopoles
+    and atomic relative coordinates."""
 
     # Final octupole vector is represented as xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz.
     monopole_contribution = torch.zeros((len(atomic_monopoles), 10)).to(device)
@@ -275,20 +286,28 @@ def approximate_molecular_octupole_moment(
     ry = relative_coordinates[:, 1]
     rz = relative_coordinates[:, 2]
 
-    monopole_contribution[:, 0] = q * rx * rx * rx
-    monopole_contribution[:, 1] = q * rx * rx * ry
-    monopole_contribution[:, 2] = q * rx * rx * rz 
-    monopole_contribution[:, 3] = q * rx * ry * ry 
-    monopole_contribution[:, 4] = q * rx * ry * rz
-    monopole_contribution[:, 5] = q * rx * rz * rz
-    monopole_contribution[:, 6] = q * ry * ry * ry
-    monopole_contribution[:, 7] = q * ry * ry * rz
-    monopole_contribution[:, 8] = q * ry * rz * rz
-    monopole_contribution[:, 9] = q * rz * rz * rz
+    dotprod = torch.einsum("ij,ij->i", relative_coordinates, relative_coordinates)
 
+    monopole_contribution[:, 0] = q * (
+        (2.5 * rx * rx * rx) - (0.5 * dotprod * (3 * rx))
+    )
+    monopole_contribution[:, 1] = q * ((2.5 * rx * rx * ry) - (0.5 * dotprod * ry))
+    monopole_contribution[:, 2] = q * ((2.5 * rx * rx * rz) - (0.5 * dotprod * rz))
+    monopole_contribution[:, 3] = q * ((2.5 * rx * ry * ry) - (0.5 * dotprod * rx))
+    monopole_contribution[:, 4] = q * (2.5 * rx * ry * rz)
+    monopole_contribution[:, 5] = q * ((2.5 * rx * rz * rz) - (0.5 * dotprod * rx))
+    monopole_contribution[:, 6] = q * (
+        (2.5 * ry * ry * ry) - (0.5 * dotprod * (3 * ry))
+    )
+    monopole_contribution[:, 7] = q * ((2.5 * ry * ry * rz) - (0.5 * dotprod * rz))
+    monopole_contribution[:, 8] = q * ((2.5 * ry * rz * rz) - (0.5 * dotprod * ry))
+    monopole_contribution[:, 9] = q * (
+        (2.5 * rz * rz * rz) - (0.5 * dotprod * (3 * rz))
+    )
 
-    molecular_octupole_moment = sum_approximation_contributions(testbgs, monopole_contribution, atomic_octupoles)
-    molecular_octupole_moment = detrace_octupoles(molecular_octupole_moment)
+    molecular_octupole_moment = sum_approximation_contributions(
+        testbgs, monopole_contribution
+    )
 
     return molecular_octupole_moment
 
@@ -301,12 +320,14 @@ def test_network(
     model_type: str,
     multipole_names: list,
     element_types: list,
-    computed_multipole_indices: list
+    computed_multipole_indices: list,
 ) -> None:
     """Make predictions on test set from trained model
     NOTE: This code assumes the feature and label orders determined in ExtractFeatures.py
-        e.g., The one-hot encoded elment-type feature is accessible as testbgs.ndata['nfeats'][:,0:7]
-        e.g., The model returns label predictions in the order atomic monopole, dipole, quadrupole, and then octupole
+        e.g., The one-hot encoded elment-type feature is accessible as:
+            testbgs.ndata['nfeats'][:,0:7]
+        e.g., The model returns label predictions in the order:
+            atomic monopole, dipole, quadrupole, and then octupole
     """
 
     # Create lists to store MAE and R^2 computed information
@@ -328,7 +349,10 @@ def test_network(
         elem_R2 = np.zeros((num_models, num_multipoles, num_element_types))
 
     # Iterate over each trained model
-    print("\n** Predictive errors averaged across {} model(s): **".format(num_models), flush=True)
+    print(
+        "\n** Predictive errors averaged across {} model(s): **".format(num_models),
+        flush=True,
+    )
     for i in range(num_models):
 
         print("\nModel path: {}".format(bestmodel_paths[i]), flush=True)
@@ -364,10 +388,13 @@ def test_network(
                     pred_monopoles = preds[:, 0:1]
                     pred_dipoles = preds[:, 1:4]
                     relative_coordinates = testbgs.ndata["relative_coordinates"]
-    
+
                     # Approximate the molecular dipole moment
                     preds_mol_dipole = approximate_molecular_dipole_moment(
-                        testbgs, pred_monopoles, pred_dipoles, relative_coordinates
+                        copy.deepcopy(testbgs),
+                        pred_monopoles,
+                        pred_dipoles,
+                        relative_coordinates,  # type: ignore
                     )
 
                     predlabels_mol_dipole = torch.cat(
@@ -382,18 +409,17 @@ def test_network(
         # Convert format of dataset reference labels for atomic dipoles
         testbgs = dgl.batch(testgraphs)
 
-        true_monopoles = testbgs.ndata["label_monopoles"].cpu().numpy()
-        true_dipoles = testbgs.ndata["label_dipoles"].cpu().numpy()
-        true_quadrupoles = testbgs.ndata["label_quadrupoles"].cpu().numpy()
-        true_octupoles = testbgs.ndata["label_octupoles"].cpu().numpy()
+        true_monopoles = testbgs.ndata["label_monopoles"].cpu().numpy()  # type: ignore
+        true_dipoles = testbgs.ndata["label_dipoles"].cpu().numpy()  # type: ignore
+        true_quadrupoles = testbgs.ndata["label_quadrupoles"].cpu().numpy()  # type: ignore
+        true_octupoles = testbgs.ndata["label_octupoles"].cpu().numpy()  # type: ignore
 
         pred_monopoles = predlabels[:, 0:1]
         pred_dipoles = predlabels[:, 1:4]
         pred_quadrupoles = predlabels[:, 4:10]
         pred_octupoles = predlabels[:, 10:20]
 
-
-        # If model is of type PINN, obtain molecular dipole, quadrupole, 
+        # If model is of type PINN, obtain molecular dipole, quadrupole,
         # and octupole moments for each molecule
         if model_type == "PINN":
 
@@ -402,51 +428,60 @@ def test_network(
             testbgs.ndata["pred_quadrupoles"] = pred_quadrupoles
             testbgs.ndata["pred_octupoles"] = pred_octupoles
 
-            testgraphs_selected = dgl.unbatch(testbgs)
+            testgraphs_selected = dgl.unbatch(copy.deepcopy(testbgs))
 
-            # Get values specific to the graphs randomly selected for reference multipole calculation
-            testbgs_selected = dgl.batch([testgraphs_selected[i] for i in computed_multipole_indices])
+            # Get values specific to the graphs randomly selected
+            # for reference multipole calculation
+            testbgs_selected = dgl.batch(
+                [testgraphs_selected[i] for i in computed_multipole_indices]
+            )
 
-            relative_coordinates_selected = testbgs_selected.ndata["relative_coordinates"]
+            relative_coordinates_selected = testbgs_selected.ndata[
+                "relative_coordinates"
+            ]
             pred_monopoles_selected = testbgs_selected.ndata["pred_monopoles"]
-            pred_quadrupoles_selected = testbgs_selected.ndata["pred_quadrupoles"]
-            pred_octupoles_selected= testbgs_selected.ndata["pred_octupoles"]
+            # pred_quadrupoles_selected = testbgs_selected.ndata["pred_quadrupoles"]
+            # pred_octupoles_selected = testbgs_selected.ndata["pred_octupoles"]
 
             # Approximate the molecular quadrupole moment
             predlabels_mol_quadrupole = approximate_molecular_quadrupole_moment(
-                testbgs_selected, 
-                pred_monopoles_selected, 
-                pred_quadrupoles_selected,  
-                relative_coordinates_selected,  
-                device
+                copy.deepcopy(testbgs_selected),
+                pred_monopoles_selected,  # type: ignore
+                # pred_quadrupoles_selected,
+                relative_coordinates_selected,  # type: ignore
+                device,
             )
 
             # Approximate the molecular octupole moment
             predlabels_mol_octupole = approximate_molecular_octupole_moment(
-                testbgs_selected, 
-                pred_monopoles_selected, 
-                pred_octupoles_selected, 
-                relative_coordinates_selected,  
-                device
+                copy.deepcopy(testbgs_selected),
+                pred_monopoles_selected,  # type: ignore
+                # pred_octupoles_selected,
+                relative_coordinates_selected,  # type: ignore
+                device,
             )
 
             predlabels_mol_dipole = predlabels_mol_dipole.cpu().numpy()
             predlabels_mol_quadrupole = predlabels_mol_quadrupole.cpu().numpy()
             predlabels_mol_octupole = predlabels_mol_octupole.cpu().numpy()
 
+            true_mol_dipole = get_reference_molecular_moments(
+                testbgs, "molecular_dipole"
+            )
 
-            true_mol_dipole = get_reference_molecular_moments(testbgs, "molecular_dipole")
-
-            true_mol_quadrupole = get_reference_molecular_moments(testbgs_selected, "molecular_quadrupole")
+            true_mol_quadrupole = get_reference_molecular_moments(
+                testbgs_selected, "molecular_quadrupole"
+            )
             true_mol_quadrupole = detrace_quadrupoles(true_mol_quadrupole)
 
-            true_mol_octupole = get_reference_molecular_moments(testbgs_selected, "molecular_octupole")
+            true_mol_octupole = get_reference_molecular_moments(
+                testbgs_selected, "molecular_octupole"
+            )
             true_mol_octupole = detrace_octupoles(true_mol_octupole)
 
             true_mol_dipole = true_mol_dipole.cpu().numpy()
             true_mol_quadrupole = true_mol_quadrupole.cpu().numpy()
             true_mol_octupole = true_mol_octupole.cpu().numpy()
-
 
         # Organize reference and predicted labels in lists
         true_labels_by_multipole = [
@@ -462,7 +497,6 @@ def test_network(
         pred_octupoles = pred_octupoles.cpu().numpy()
         predlabels = predlabels.cpu().numpy()
 
-
         pred_labels_by_multipole = [
             pred_monopoles,
             pred_dipoles,
@@ -470,17 +504,22 @@ def test_network(
             pred_octupoles,
         ]
 
-
         if model_type == "PINN":
-            true_labels_by_multipole.extend([true_mol_dipole, true_mol_quadrupole, true_mol_octupole])
-            pred_labels_by_multipole.extend([predlabels_mol_dipole, predlabels_mol_quadrupole, predlabels_mol_octupole])
+            true_labels_by_multipole.extend(
+                [true_mol_dipole, true_mol_quadrupole, true_mol_octupole]
+            )
+            pred_labels_by_multipole.extend(
+                [
+                    predlabels_mol_dipole,
+                    predlabels_mol_quadrupole,
+                    predlabels_mol_octupole,
+                ]
+            )  # type: ignore
 
         # Record MAE and R^2 for each multipole type
         for j in range(len(multipole_names)):
-            MAE, R2, _, _, _, _, _ = (
-                print_testing_statistics(
-                    true_labels_by_multipole[j], pred_labels_by_multipole[j]
-                )
+            MAE, R2, _, _, _, _, _ = print_testing_statistics(
+                true_labels_by_multipole[j], pred_labels_by_multipole[j]
             )
             overall_MAE[i, j] = MAE
             overall_R2[i, j] = R2
@@ -513,7 +552,6 @@ def test_network(
             flush=True,
         )
 
-
     print("\nELEMENT-SPECIFIC RESULTS")
     for j in range(num_atomic_multipoles):
         print("\nMultipole type: {}".format(multipole_names[j]))
@@ -540,7 +578,7 @@ def main(read_filepath_splits: str, read_filepath_model: str):
     # Include more paths here to average result over multiple models
     bestmodel_paths = []
     for filename in os.listdir(read_filepath_model):
-        if filename.endswith('.bin'):
+        if filename.endswith(".bin"):
             bestmodel_paths.append(read_filepath_model + filename)
 
     # Details related to QMDFAM
@@ -561,7 +599,7 @@ def main(read_filepath_splits: str, read_filepath_model: str):
             "Octupoles",
             "Molecular Dipole",
             "Molecular Quadrupole",
-            "Molecular Octupole"
+            "Molecular Octupole",
         ]
     elif model_type == "Non-PINN":
         multipole_names = ["Monopoles", "Dipoles", "Quadrupoles", "Octupoles"]
@@ -570,9 +608,12 @@ def main(read_filepath_splits: str, read_filepath_model: str):
     model_precision = torch.float32
     testgraphs = load_format_dataset(device, test_path, model_precision)
 
-    # These are the indices of the reference molecular quadrupoles and octupoles computed using psi4
-    computed_multipole_indices = np.load('random_numbers.npy')
-    print(f"Test indices for molecular quadrupole and octupoles: {computed_multipole_indices}")
+    # These are the indices of the reference molecular quadrupoles and octupoles
+    # computed using psi4
+    computed_multipole_indices = np.load("random_numbers.npy")
+    print(
+        f"Test indices for molecular quadrupole and octupoles: {computed_multipole_indices}"
+    )
     print(f"Number of indices {len(computed_multipole_indices)}")
 
     # Evaluate trained model on test set graphs
@@ -584,5 +625,5 @@ def main(read_filepath_splits: str, read_filepath_model: str):
         model_type,
         multipole_names,
         element_types,
-        computed_multipole_indices
+        computed_multipole_indices,
     )

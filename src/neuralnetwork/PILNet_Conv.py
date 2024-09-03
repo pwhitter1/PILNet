@@ -1,3 +1,6 @@
+"""Contains class definition for PIL-Net model convolutional layer.
+"""
+
 import torch
 import torch.nn as nn
 
@@ -65,7 +68,7 @@ class PILNet_Conv(nn.Module):
             nn.Linear(hidden_dim, num_coord_feats), activation
         )
 
-    def edge_udf(self, edges: dgl.udf.EdgeBatch) -> dict:
+    def edge_udf(self, edges: dgl.udf.EdgeBatch) -> dict:  # type: ignore
         """Perform edge convolution."""
 
         return {
@@ -91,13 +94,14 @@ class PILNet_Conv(nn.Module):
 
         # Graph convolution (update each feature based on the features' of its neighbors)
         bgs.apply_edges(self.edge_udf)
-        bgs.update_all(fn.copy_e("x", "m"), fn.sum("m", "k"))
+        bgs.update_all(fn.copy_e("x", "m"), fn.sum("m", "k"))  # type: ignore
 
         del bgs.ndata["h"]
         del bgs.edata["x"]
 
-        # Apply linear layer (reduce dimension to original) and non-linear activation to each feature
-        # Apply a skip connection
+        # Apply linear layer (reduce dimension to original)
+        # and non-linear activation function to each feature.
+        # Apply a skip connection.
         hfeats = hfeats + self.combination_reduction_nfeats(bgs.srcdata["k"])
         efeats = efeats + self.combination_reduction_efeats(bgs.edata["e"])
         cfeats = cfeats + self.combination_reduction_cfeats(bgs.srcdata["c"])

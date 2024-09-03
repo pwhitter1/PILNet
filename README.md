@@ -4,7 +4,7 @@
 
 ## Dataset:
 
-The QM Dataset for Atomic Multipoles is publicly accessible here: https://doi.org/10.3929/ethz-b-000509052.<br>
+The QM Dataset for Atomic Multipoles (QMDFAM) is publicly accessible here: https://doi.org/10.3929/ethz-b-000509052.<br>
 The `data.hdf5` and `data_gdb.hdf5` dataset files must be downloaded separately to run our experiments.<br>
 Once downloaded, they can be placed in the `PILNet/src/datasets/` directory.<br>
 
@@ -31,12 +31,14 @@ Read in dataset information, extract features, and save each molecule representa
 ### 2. PILNet/src/preprocessing/SplitData_NormalizeFeatures.py
 Separate data into train/validation/test set splits and normalize features.
 
-** ComputeReferenceMultipoles.py **
+### 3. PILNet/src/preprocessing/ComputeReferenceMultipoles.py **
+Use PSI4 to compute reference molecular quadrupole and octupole multipole moments (unavailable in QMDFAM)
+for some of the test set graphs.
 
-### 3. PILNet/src/training/TrainNetwork.py
+### 4. PILNet/src/training/TrainNetwork.py
 Train a PILNet model using the training and validation dataset splits.
 
-### 4. PILNet/src/inference/PredictNetwork.py
+### 5. PILNet/src/inference/PredictNetwork.py
 Use the trained PILNet model(s) to predict the test set labels.
 
 ## PIL-Net Models:
@@ -49,37 +51,33 @@ These models can be used for inference in lieu of running `TrainNetwork.py`.
 `pilnet_model2.bin`<br>
 `pilnet_model3.bin`<br>
 
-## Command line arguments:
+TODO: Need to add updated PIL-Net models to file system
 
-(NEED TO CHANGE THIS TO FUNCTION ARGUMENTS, NOT COMMAND LINE ARGUMENTS)
+## Example executable file: run_example.py:
 
-### Use the following arguments to specify data file paths when running the executable files.
+### Use the following function arguments when running the specified files.
 
 ### 1. ExtractFeatures.py
---read_filepath [Path to directory with hdf5 files containing QMDFAM data]<br>
---save_filepath [Path to directory to save DGL graphs of QMDFAM data]<br>
-
-Example: `python ExtractFeatures.py  --read_filepath datasets/ --save_filepath graphs/`
+<i>read_filepath</i>: Path to directory with hdf5 files containing QMDFAM data<br>
+<i>save_filepath</i>: Path to directory to save DGL graphs of QMDFAM data<br>
 
 ### 2. SplitData_NormalizeFeatures.py
---read_filepath [Path to directory containing .bin files with DGL graphs of QMDFAM data]<br>
---save_filepath [Path to directory to save train/val/test splits of DGL graphs]<br>
+<i>read_filepath</i>: Path to directory containing .bin files with DGL graphs of QMDFAM data<br>
+<i>save_filepath</i>: Path to directory to save train/val/test splits of DGL graphs<br>
 
-Example: `python SplitData_NormalizeFeatures.py --read_filepath graphs/ --save_filepath splits/`
+### 3. ComputeReferenceMultipoles.py
+<i>read_filepath</i>: Path to directory containing test set splits of DGL graphs<br>
+<i>save_filepath</i>: Path to directory save updated test set splits (new reference labels) of DGL graphs<br>
 
-### 3. TrainNetwork.py
---read_filepath [Path to directory containing train/val/test splits of DGL graphs]<br>
---save_filepath [Path to directory to save trained pytorch model]<br>
+### 4. TrainNetwork.py
+<i>read_filepath</i>: Path to directory containing train/val/test splits of DGL graphs<br>
+<i>save_filepath</i>: Path to directory to save trained pytorch model<br>
 
-Example: `python TrainNetwork.py --read_filepath splits/ --save_filepath models/`
+### 5. PredictNetwork.py
+<i>read_filepath_splits</i>: Path to directory to containing train/val/test splits of DGL graphs<br>
+<i>read_filepath_model</i>: Path to directory to trained pytorch model(s)<br>
 
-### 4. PredictNetwork.py
---read_filepath_splits [Path to directory to containing train/val/test splits of DGL graphs]<br>
---read_filepath_model [Path to directory to trained pytorch model(s)]<br>
-
-Example: `python PredictNetwork.py --read_filepath_splits splits/ --read_filepath_model models/`<br>
-
-Note: All `.bin` files in the specified model directory will be used for model inference.
+Note: All `.bin` files immediately inside the specified model directory will be used for model inference.
 Their collective predictive error will be averaged.
 
 ## Code Dependencies:
@@ -100,4 +98,4 @@ Their collective predictive error will be averaged.
 
 `torch==1.12.1 torchaudio==0.12.1 torchsummary==1.5.1 torchvision==0.13.1`
 
-`psi4==1.9.1`
+`psi4==1.9.1` (run in a separate environment)

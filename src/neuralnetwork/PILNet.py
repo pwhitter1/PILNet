@@ -1,3 +1,6 @@
+"""Contains class definition for PIL-Net model architecture.
+"""
+
 import torch
 import torch.nn as nn
 
@@ -154,30 +157,6 @@ class PILNet(nn.Module):
         cfeats_dip = []
         efeats_dip = []
 
-        # Apply physics-informed constraints
-        if self.model_type == "PINN":
-
-            net_charge_bound = 1
-
-            bgs.ndata["prediction_dip"] = prediction_dip
-            unsqueezed_batch_num_nodes = torch.unsqueeze(bgs.batch_num_nodes(), 1)
-
-            # If the absolute value of the sum exceeds the net charge bound,
-            #    redistribute the values so that the total charge equals the target value
-            sum_pred_total_charge = dgl.readout_nodes(
-                graph=bgs, feat="prediction_dip", op="sum"
-            )
-            final_value = sum_pred_total_charge / unsqueezed_batch_num_nodes
-
-            vectors_less_than_bound = torch.all(
-                torch.abs(sum_pred_total_charge) < net_charge_bound, dim=1
-            )
-            indices = torch.where(vectors_less_than_bound)
-            final_value[indices[0]] = 0
-
-            prediction_dip -= dgl.broadcast_nodes(bgs, final_value)
-            del sum_pred_total_charge, unsqueezed_batch_num_nodes, final_value, indices
-
         """ (3) Quadrupoles """
 
         hfeats_quad = bgs.ndata["nfeats"]
@@ -250,13 +229,20 @@ class PILNet(nn.Module):
         # Apply physics-informed constraints
         if self.model_type == "PINN":
 
-            # Centering the mean of the diagonal elements around zero
-            mean_traces = (
-                prediction_oct[:, 0] + prediction_oct[:, 6] + prediction_oct[:, 9]
-            ) / 3
-            prediction_oct[:, 0] -= mean_traces
-            prediction_oct[:, 6] -= mean_traces
-            prediction_oct[:, 9] -= mean_traces
+            # Centering the mean of the elements that form each trace of the tensor around zero
+            x = [0, 6, 9]
+            y = [3, 1, 2]
+            z = [5, 8, 7]
+
+            for i in range(len(x)):
+                mean_traces = (
+                    prediction_oct[:, x[i]]
+                    + prediction_oct[:, y[i]]
+                    + prediction_oct[:, z[i]]
+                ) / 3
+                prediction_oct[:, x[i]] -= mean_traces
+                prediction_oct[:, y[i]] -= mean_traces
+                prediction_oct[:, z[i]] -= mean_traces
 
             mean_traces = []
 

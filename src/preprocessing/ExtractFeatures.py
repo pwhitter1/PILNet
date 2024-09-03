@@ -1,3 +1,7 @@
+"""Read in dataset information, extract features,
+    and save each molecule representation as a DGL graph.
+"""
+
 import h5py
 import numpy as np
 import torch
@@ -9,8 +13,6 @@ import rdkit
 from rdkit.Chem.rdchem import HybridizationType
 from rdkit.Chem.rdchem import BondType
 
-import argparse
-
 
 def getdataset(
     data: str,
@@ -19,7 +21,8 @@ def getdataset(
     unique_hybridization_list: list,
     unique_bondtype_list: list,
 ) -> None:
-    """Read in dataset information, extract features, and save molecule representation as a DGL graph."""
+    """Read in dataset information, extract features,
+    and save molecule representation as a DGL graph."""
 
     print(f"\nLoading {data}", flush=True)
     h = h5py.File(data, "r")
@@ -42,7 +45,7 @@ def getdataset(
             "coordinates",
         ]
         for val in keywords:
-            if len(h[key][val][()]) == 0:
+            if len(h[key][val][()]) == 0:  # type: ignore
                 missing_data_flag = True
                 break
         if missing_data_flag:
@@ -51,15 +54,15 @@ def getdataset(
 
         """ Start building graph of this molecule """
         g = dgl.DGLGraph()
-        smiles = h[key]["smiles"][()]
-        mol = rdkit.Chem.MolFromSmiles(smiles)
-        mol = rdkit.Chem.AddHs(mol)
+        smiles = h[key]["smiles"][()]  # type: ignore
+        mol = rdkit.Chem.MolFromSmiles(smiles)  # type: ignore
+        mol = rdkit.Chem.AddHs(mol)  # type: ignore
 
         """ Add nodes and node features """
 
         # Node feature: One-hot encoded element type
-        elements = h[key]["elements"][()]
-        nodefeats_elementtype = get_one_hot(elements, unique_element_list)
+        elements = h[key]["elements"][()]  # type: ignore
+        nodefeats_elementtype = get_one_hot(elements, unique_element_list)  # type: ignore
 
         # Node feature: One-hot encoded hybridization state
         hybridization_state = []
@@ -75,25 +78,25 @@ def getdataset(
 
         # Note: These two features (from dataset and from rdkit) have the same atom ordering
         nodefeats = np.hstack((nodefeats_elementtype, nodefeats_hybridizationstate))
-        num_nodes = len(elements)
+        num_nodes = len(elements)  # type: ignore
         g.add_nodes(num_nodes, data={"nfeats": torch.tensor(nodefeats)})
 
         """ Add coordinate feature """
 
-        coordinates = h[key]["coordinates"][()]
+        coordinates = h[key]["coordinates"][()]  # type: ignore
 
         molecule_mass = 0.0
-        for i in range(len(elements)):
-            elem_mass = compute_mass(elements[i])
+        for i in range(len(elements)):  # type: ignore
+            elem_mass = compute_mass(elements[i])  # type: ignore
             molecule_mass += elem_mass
 
             if i == 0:
-                center_mass_position = elem_mass * coordinates[i, :]
+                center_mass_position = elem_mass * coordinates[i, :]  # type: ignore
             else:
-                center_mass_position += elem_mass * coordinates[i, :]
+                center_mass_position += elem_mass * coordinates[i, :]  # type: ignore
 
-        center_mass_position /= molecule_mass
-        relative_coordinates = coordinates - center_mass_position
+        center_mass_position /= molecule_mass  # type: ignore
+        relative_coordinates = coordinates - center_mass_position  # type: ignore
 
         g.ndata["coordinates"] = torch.tensor(coordinates)
         center_mass_position = [center_mass_position] * num_nodes
@@ -108,8 +111,11 @@ def getdataset(
             atom1_idx = bond.GetBeginAtom().GetIdx()
             atom2_idx = bond.GetEndAtom().GetIdx()
 
-            # Edge feature: Weighted interatomic distance (to be normalized in separate file)
-            distance = np.linalg.norm(coordinates[atom1_idx] - coordinates[atom2_idx])
+            # Edge feature: Weighted interatomic distance
+            # (to be normalized in separate file)
+            distance = np.linalg.norm(
+                coordinates[atom1_idx] - coordinates[atom2_idx]  # type: ignore
+            )
             scaled_weight = np.exp(-np.power(distance, 2) / 2)
 
             atom1_tensor = torch.tensor([atom1_idx])
@@ -158,19 +164,21 @@ def getdataset(
 
         """ Add label and training split information """
 
-        # Labels: Save each multipole label as node data of the graph (not used until model evaluation)
-        g.ndata["label_monopoles"] = torch.tensor(h[key]["monopoles"][()])
-        g.ndata["label_dipoles"] = torch.tensor(h[key]["dipoles"][()])
-        g.ndata["label_quadrupoles"] = torch.tensor(h[key]["quadrupoles"][()])
-        g.ndata["label_octupoles"] = torch.tensor(h[key]["octupoles"][()])
+        # Labels: Save each multipole label as node data of the graph
+        #  (not used until model evaluation)
+        g.ndata["label_monopoles"] = torch.tensor(h[key]["monopoles"][()])  # type: ignore
+        g.ndata["label_dipoles"] = torch.tensor(h[key]["dipoles"][()])  # type: ignore
+        g.ndata["label_quadrupoles"] = torch.tensor(h[key]["quadrupoles"][()])  # type: ignore
+        g.ndata["label_octupoles"] = torch.tensor(h[key]["octupoles"][()])  # type: ignore
 
-        molecular_dipole = [h[key]["molecular_dipole"][()]] * num_nodes
+        molecular_dipole = [h[key]["molecular_dipole"][()]] * num_nodes  # type: ignore
         g.ndata["molecular_dipole"] = torch.tensor(np.array(molecular_dipole))
-        molecular_dipole_mbis = [h[key]["molecular_dipole_mbis"][()]] * num_nodes
+        molecular_dipole_mbis = [h[key]["molecular_dipole_mbis"][()]] * num_nodes  # type: ignore
         g.ndata["molecular_dipole_mbis"] = torch.tensor(np.array(molecular_dipole_mbis))
 
-        # Split information: Used to partition molecules into correct train/val/test split as determined by dataset
-        set = h[key]["set"][()]
+        # Split information: Used to partition molecules into correct
+        # train/val/test split as determined by dataset
+        set = h[key]["set"][()]  # type: ignore
         if set == b"train" or set == b"train_gdb":
             set_list = [0] * num_nodes
         elif set == b"validation" or set == b"validation_gdb":
@@ -178,6 +186,10 @@ def getdataset(
         elif set == b"test" or set == b"test_gdb":
             set_list = [2] * num_nodes
         g.ndata["set"] = torch.tensor(set_list)
+
+        # Printed reference for users
+        if graph_count % 1000 == 0:
+            print(f"Molecule: {graph_count}", flush=True)
 
         """ Append graph to graph list """
         graphs.append(g)

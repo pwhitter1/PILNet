@@ -1,3 +1,6 @@
+"""Train a PILNet model using the training and validation dataset splits.
+"""
+
 import numpy as np
 
 import torch
@@ -9,7 +12,6 @@ from dgl.data.utils import load_graphs
 
 import random
 import time
-import argparse
 import datetime
 
 from typing import Callable
@@ -41,10 +43,12 @@ def load_format_datasets(
     batch_traingraphs = detrace_atomic_octupole_labels(batch_traingraphs)
 
     # Compute the multipole loss function weights
-    monopole_iqr = get_loss_func_weight(batch_traingraphs.ndata["label_monopoles"])
-    dipole_iqr = get_loss_func_weight(batch_traingraphs.ndata["label_dipoles"])
-    quadrupole_iqr = get_loss_func_weight(batch_traingraphs.ndata["label_quadrupoles"])
-    octupole_iqr = get_loss_func_weight(batch_traingraphs.ndata["label_octupoles"])
+    monopole_iqr = get_loss_func_weight(batch_traingraphs.ndata["label_monopoles"])  # type: ignore
+    dipole_iqr = get_loss_func_weight(batch_traingraphs.ndata["label_dipoles"])  # type: ignore
+    quadrupole_iqr = get_loss_func_weight(
+        batch_traingraphs.ndata["label_quadrupoles"]  # type: ignore
+    )  
+    octupole_iqr = get_loss_func_weight(batch_traingraphs.ndata["label_octupoles"])  # type: ignore
 
     sum_iqr = monopole_iqr + dipole_iqr + quadrupole_iqr + octupole_iqr
 
@@ -104,35 +108,42 @@ def convert_to_model_precision(
 ) -> dgl.DGLGraph:
     """Convert data and labels to specified model precision."""
 
-    batch_graphs.ndata["nfeats"] = batch_graphs.ndata["nfeats"].to(model_precision)
-    batch_graphs.edata["efeats"] = batch_graphs.edata["efeats"].to(model_precision)
+    batch_graphs.ndata["nfeats"] = batch_graphs.ndata["nfeats"].to(model_precision)  # type: ignore
+    batch_graphs.edata["efeats"] = batch_graphs.edata["efeats"].to(model_precision)  # type: ignore
 
-    batch_graphs.ndata["label_monopoles"] = batch_graphs.ndata["label_monopoles"].to(
+    batch_graphs.ndata["label_monopoles"] = batch_graphs.ndata[
+        "label_monopoles"
+    ].to(  # type: ignore
         model_precision
     )
-    batch_graphs.ndata["label_dipoles"] = batch_graphs.ndata["label_dipoles"].to(
+    batch_graphs.ndata["label_dipoles"] = batch_graphs.ndata["label_dipoles"].to(  # type: ignore
         model_precision
     )
     batch_graphs.ndata["label_quadrupoles"] = batch_graphs.ndata[
         "label_quadrupoles"
-    ].to(model_precision)
-    batch_graphs.ndata["label_octupoles"] = batch_graphs.ndata["label_octupoles"].to(
+    ].to(  # type: ignore
+        model_precision
+    )  
+    batch_graphs.ndata["label_octupoles"] = batch_graphs.ndata[
+        "label_octupoles"
+    ].to(  # type: ignore
         model_precision
     )
 
-    batch_graphs.ndata["coordinates"] = batch_graphs.ndata["coordinates"].to(
+    batch_graphs.ndata["coordinates"] = batch_graphs.ndata["coordinates"].to(  # type: ignore
         model_precision
     )
     batch_graphs.ndata["relative_coordinates"] = batch_graphs.ndata[
         "relative_coordinates"
-    ].to(model_precision)
+    ].to(model_precision)  # type: ignore  
 
     return batch_graphs
 
-def detrace_quadrupoles(quadrupoles: torch.tensor) -> torch.tensor:
-    """Detrace quadrupoles. 
-        Each row is organized as: xx xy xz yy yz zz."""
-    
+
+def detrace_quadrupoles(quadrupoles: torch.Tensor) -> torch.Tensor:
+    """Detrace the quadrupoles.
+    Each row is organized as: xx xy xz yy yz zz."""
+
     inds = [0, 3, 5]
     trace = torch.sum(quadrupoles[:, inds], dim=1)
 
@@ -142,47 +153,41 @@ def detrace_quadrupoles(quadrupoles: torch.tensor) -> torch.tensor:
 
     return quadrupoles
 
+
 def detrace_atomic_quadrupole_labels(graphs: dgl.DGLGraph) -> dgl.DGLGraph:
-    """Detrace atomic quadrupole labels from DGL graphs. 
-        Each vector is organized as: xx xy xz yy yz zz."""
+    """Detrace atomic quadrupole labels from DGL graphs.
+    Each vector is organized as: xx xy xz yy yz zz."""
 
-    # inds = [0, 3, 5]
-    # trace = torch.sum(graphs.ndata["label_quadrupoles"][:, inds], dim=1)
-
-    # graphs.ndata["label_quadrupoles"][:, 0] -= trace / 3
-    # graphs.ndata["label_quadrupoles"][:, 3] -= trace / 3
-    # graphs.ndata["label_quadrupoles"][:, 5] -= trace / 3
-
-    quadrupoles = detrace_quadrupoles(graphs.ndata["label_quadrupoles"])
+    quadrupoles = detrace_quadrupoles(graphs.ndata["label_quadrupoles"])  # type: ignore
     graphs.ndata["label_quadrupoles"] = quadrupoles
 
     return graphs
 
-def detrace_octupoles(octupoles: torch.tensor) -> torch.tensor:
-    """Detrace octupoles. 
-        Each row is organized as: xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz."""
-    
-    inds = [0, 6, 9]
-    trace = torch.sum(octupoles[:, inds], dim=1)
 
-    octupoles[:, 0] -= trace / 3
-    octupoles[:, 6] -= trace / 3
-    octupoles[:, 9] -= trace / 3
+def detrace_octupoles(octupoles: torch.Tensor) -> torch.Tensor:
+    """Detrace the octupoles.
+    Each row is organized as: xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz."""
+
+    x = [0, 6, 9]
+    y = [3, 1, 2]
+    z = [5, 8, 7]
+
+    for i in range(len(x)):
+        inds = [x[i], y[i], z[i]]
+        trace = torch.sum(octupoles[:, inds], dim=1)
+
+        octupoles[:, x[i]] -= trace / 3
+        octupoles[:, y[i]] -= trace / 3
+        octupoles[:, z[i]] -= trace / 3
 
     return octupoles
 
+
 def detrace_atomic_octupole_labels(graphs: dgl.DGLGraph) -> dgl.DGLGraph:
-    """Detrace atomic octupole labels from DGL graphs. 
-        Each vector is organized as: xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz."""
+    """Detrace atomic octupole labels from DGL graphs.
+    Each vector is organized as: xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz."""
 
-    # inds = [0, 6, 9]
-    # trace = torch.sum(graphs.ndata["label_octupoles"][:, inds], dim=1)
-
-    # graphs.ndata["label_octupoles"][:, 0] -= trace / 3
-    # graphs.ndata["label_octupoles"][:, 6] -= trace / 3
-    # graphs.ndata["label_octupoles"][:, 9] -= trace / 3
-
-    octupoles = detrace_octupoles(graphs.ndata["label_octupoles"])
+    octupoles = detrace_octupoles(graphs.ndata["label_octupoles"])  # type: ignore
     graphs.ndata["label_octupoles"] = octupoles
 
     return graphs
@@ -195,7 +200,7 @@ def get_loss_func_weight(data: torch.Tensor) -> float:
 
     for i in range(len(data[0])):
         # Quartiles
-        q3, q1 = np.percentile(data[:, i], [75, 25], interpolation="midpoint")
+        q3, q1 = np.percentile(data[:, i], [75, 25], interpolation="midpoint")  # type: ignore
         iqr += q3 - q1
 
     avg_iqr = iqr / len(data[0])
@@ -273,10 +278,10 @@ def set_network_parameters(
         if "oct" in name:
             params_optimizer_oct.append(param)
 
-    optimizer_mon = optim.Adam(params_optimizer_mon, lr=learnrate)
-    optimizer_dip = optim.Adam(params_optimizer_dip, lr=learnrate)
-    optimizer_quad = optim.Adam(params_optimizer_quad, lr=learnrate)
-    optimizer_oct = optim.Adam(params_optimizer_oct, lr=learnrate)
+    optimizer_mon = optim.Adam(params_optimizer_mon, lr=learnrate)  # type: ignore
+    optimizer_dip = optim.Adam(params_optimizer_dip, lr=learnrate)  # type: ignore
+    optimizer_quad = optim.Adam(params_optimizer_quad, lr=learnrate)  # type: ignore
+    optimizer_oct = optim.Adam(params_optimizer_oct, lr=learnrate)  # type: ignore
 
     # Specify scheduler parameters and create separate one for each multipole type
     lr_factor = 0.5
@@ -290,7 +295,7 @@ def set_network_parameters(
         threshold=lr_threshold,
         patience=lr_patience,
         min_lr=min_lr,
-        verbose=True,
+        verbose=True,  # type: ignore
     )
     scheduler_dip = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer_dip,
@@ -298,7 +303,7 @@ def set_network_parameters(
         threshold=lr_threshold,
         patience=lr_patience,
         min_lr=min_lr,
-        verbose=True,
+        verbose=True,  # type: ignore
     )
     scheduler_quad = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer_quad,
@@ -306,7 +311,7 @@ def set_network_parameters(
         threshold=lr_threshold,
         patience=lr_patience,
         min_lr=min_lr,
-        verbose=True,
+        verbose=True,  # type: ignore
     )
     scheduler_oct = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer_oct,
@@ -314,7 +319,7 @@ def set_network_parameters(
         threshold=lr_threshold,
         patience=lr_patience,
         min_lr=min_lr,
-        verbose=True,
+        verbose=True,  # type: ignore
     )
 
     # Store these values to return from function
@@ -383,8 +388,8 @@ def train_network(
     # Train neural network
     for epoch in range(num_epochs):
 
-        totalnumlabels = 0
-        count = 0
+        totalnumlabels = 0.0
+        count = 0.0
 
         epoch_loss = 0.0
         epoch_monopoles_loss = 0.0
@@ -392,11 +397,10 @@ def train_network(
         epoch_quadrupoles_loss = 0.0
         epoch_octupoles_loss = 0.0
 
-        epoch_monopoles_penalty_total = torch.tensor(0)
-        epoch_monopoles_penalty_H = torch.tensor(0)
-        epoch_dipoles_penalty_total = torch.tensor(0)
-        epoch_quadrupoles_penalty = torch.tensor(0)
-        epoch_octupoles_penalty = torch.tensor(0)
+        epoch_monopoles_penalty_total = 0.0
+        epoch_monopoles_penalty_H = 0.0
+        epoch_quadrupoles_penalty = 0.0
+        epoch_octupoles_penalty = 0.0
 
         for iter, bgs in enumerate(train_dataloader):
 
@@ -426,13 +430,13 @@ def train_network(
                 + ((1 / octupole_weight) * octupoles_loss)
             )
 
-            # Only computing PINN penalties for diagnostic purposes (does not affect network training)
+            # Only computing PINN penalties for diagnostic purposes
+            # (does not affect network training)
             # Choose one random graph per epoch as penalty representative
             random_graph_index = random.randint(0, bgs.batch_size - 1)
             (
                 monopole_penalty_total,
                 monopole_penalty_H,
-                dipole_penalty_total,
                 quadrupole_penalty,
                 octupole_penalty,
             ) = PINN_penalties(
@@ -441,16 +445,14 @@ def train_network(
             count += 1
 
             # Update running penalty total
-            epoch_monopoles_penalty_total += monopole_penalty_total
-            epoch_monopoles_penalty_H += monopole_penalty_H
-            epoch_dipoles_penalty_total += dipole_penalty_total
-            epoch_quadrupoles_penalty += quadrupole_penalty
-            epoch_octupoles_penalty += octupole_penalty
+            epoch_monopoles_penalty_total += monopole_penalty_total.detach().item()
+            epoch_monopoles_penalty_H += monopole_penalty_H.detach().item()
+            epoch_quadrupoles_penalty += quadrupole_penalty.detach().item()
+            epoch_octupoles_penalty += octupole_penalty.detach().item()
 
             del (
                 monopole_penalty_total,
                 monopole_penalty_H,
-                dipole_penalty_total,
                 quadrupole_penalty,
                 octupole_penalty,
             )
@@ -536,7 +538,6 @@ def train_network(
         # Average pinn penalties across epoch molecules
         epoch_monopoles_penalty_total /= count
         epoch_monopoles_penalty_H /= count
-        epoch_dipoles_penalty_total /= count
         epoch_quadrupoles_penalty /= count
         epoch_octupoles_penalty /= count
 
@@ -545,7 +546,8 @@ def train_network(
 
         print("Unweighted:")
         print(
-            "Training | epoch loss {:.8f}, monopole loss {:.8f}, dipole loss {:.8f}, quadrupole loss {:.8f}, octupoles loss {:.8f}".format(
+            "Training | epoch loss {:.8f}, monopole loss {:.8f}, dipole loss {:.8f},"
+            " quadrupole loss {:.8f}, octupoles loss {:.8f}".format(
                 epoch_loss,
                 epoch_monopoles_loss,
                 epoch_dipoles_loss,
@@ -555,17 +557,18 @@ def train_network(
             flush=True,
         )
         print(
-            "Training | mon penalty total {:.8f}, mon penalty H {:.8f}, dip penalty total {:.8f}, quad penalty {:.8f}, oct penalty {:.8f}".format(
+            "Training | mon penalty total {:.8f}, mon penalty H {:.8f},"
+            " quad penalty {:.8f}, oct penalty {:.8f}".format(
                 epoch_monopoles_penalty_total,
                 epoch_monopoles_penalty_H,
-                epoch_dipoles_penalty_total,
                 epoch_quadrupoles_penalty,
                 epoch_octupoles_penalty,
             ),
             flush=True,
         )
         print(
-            "Validation | epoch loss {:.8f}, monopole loss {:.8f}, dipole loss {:.8f}, quadrupole loss {:.8f}, octupole loss {:.8f}\n".format(
+            "Validation | epoch loss {:.8f}, monopole loss {:.8f}, dipole loss {:.8f},"
+            " quadrupole loss {:.8f}, octupole loss {:.8f}\n".format(
                 validation_loss_unweighted,
                 validation_monopoles_loss,
                 validation_dipoles_loss,
@@ -577,7 +580,8 @@ def train_network(
 
         print("Weighted:")
         print(
-            "Training | epoch loss {:.8f}, monopole loss {:.8f}, dipole loss {:.8f}, quadrupole loss {:.8f}, octupoles loss {:.8f}".format(
+            "Training | epoch loss {:.8f}, monopole loss {:.8f}, dipole loss {:.8f},"
+            " quadrupole loss {:.8f}, octupoles loss {:.8f}".format(
                 epoch_loss_weighted,
                 (1 / monopole_weight) * epoch_monopoles_loss,
                 (1 / dipole_weight) * epoch_dipoles_loss,
@@ -587,17 +591,18 @@ def train_network(
             flush=True,
         )
         print(
-            "Training | mon penalty total {:.8f}, mon penalty H {:.8f}, dip penalty total {:.8f}, quad penalty {:.8f}, oct penalty {:.8f}".format(
+            "Training | mon penalty total {:.8f}, mon penalty H {:.8f},"
+            " quad penalty {:.8f}, oct penalty {:.8f}".format(
                 (1 / monopole_weight) * epoch_monopoles_penalty_total,
                 (1 / monopole_weight) * epoch_monopoles_penalty_H,
-                (1 / dipole_weight) * epoch_dipoles_penalty_total,
                 (1 / quadrupole_weight) * epoch_quadrupoles_penalty,
                 (1 / octupole_weight) * epoch_octupoles_penalty,
             ),
             flush=True,
         )
         print(
-            "Validation | epoch loss {:.8f}, monopole loss {:.8f}, dipole loss {:.8f}, quadrupole loss {:.8f}, octupole loss {:.8f}\n".format(
+            "Validation | epoch loss {:.8f}, monopole loss {:.8f}, dipole loss {:.8f},"
+            " quadrupole loss {:.8f}, octupole loss {:.8f}\n".format(
                 validation_loss,
                 (1 / monopole_weight) * validation_monopoles_loss,
                 (1 / dipole_weight) * validation_dipoles_loss,
@@ -618,7 +623,6 @@ def train_network(
         del (
             epoch_monopoles_penalty_total,
             epoch_monopoles_penalty_H,
-            epoch_dipoles_penalty_total,
             epoch_quadrupoles_penalty,
             epoch_octupoles_penalty,
         )
@@ -674,7 +678,7 @@ def validation(
 
     model.eval()
 
-    totalnumlabels = 0
+    totalnumlabels = 0.0
 
     epoch_monopoles_loss = 0.0
     epoch_dipoles_loss = 0.0
@@ -738,7 +742,7 @@ def PINN_penalties(
     random_graph_index: int,
     model_precision: torch.dtype,
     device: torch.device,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Obtain pinn penalty error for diagnostic purposes (does not impact network training)."""
 
     # Obtain graph specified by random_graph_index
@@ -748,9 +752,9 @@ def PINN_penalties(
     graph_node_index_end = graph_node_index_start + num_nodes
 
     # Initialize penalty values
-    monopole_penalty_H = torch.tensor(0, dtype=model_precision).to(device)
-    quadrupole_penalty = torch.tensor(0, dtype=model_precision).to(device)
-    octupole_penalty = torch.tensor(0, dtype=model_precision).to(device)
+    monopole_penalty_H = torch.zeros(1, dtype=model_precision).to(device)
+    quadrupole_penalty = torch.zeros(1, dtype=model_precision).to(device)
+    octupole_penalty = torch.zeros(1, dtype=model_precision).to(device)
 
     """ Monopole penalties """
 
@@ -778,18 +782,6 @@ def PINN_penalties(
 
     del nfeats, true_monopole_vectors, pred_monopole_vectors
 
-    """ Dipole penalty """
-    pred_dipole_vectors = predlabels[graph_node_index_start:graph_node_index_end, 1:4]
-    pred_dipole_sum = torch.sum(pred_dipole_vectors, dim=0)
-
-    true_dipole_vectors = bgs.ndata["label_dipoles"][
-        graph_node_index_start:graph_node_index_end, :
-    ]
-    true_dipole_sum = torch.sum(true_dipole_vectors, dim=0)
-
-    dipole_penalty_total = torch.mean(abs(true_dipole_sum - pred_dipole_sum))
-    dipole_penalty_total /= num_nodes
-
     """ Quadrupole and octupole penalties """
     pred_quad_vectors = predlabels[graph_node_index_start:graph_node_index_end, 4:10]
     pred_oct_vectors = predlabels[graph_node_index_start:graph_node_index_end, 10:20]
@@ -809,7 +801,6 @@ def PINN_penalties(
     return (
         monopole_penalty_total,
         monopole_penalty_H,
-        dipole_penalty_total,
         quadrupole_penalty,
         octupole_penalty,
     )
@@ -819,11 +810,19 @@ def main(read_filepath: str, save_filepath: str):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    train_path = read_filepath + "traindata.bin"
-    validation_path = read_filepath + "validationdata.bin"
+    # train_path = read_filepath + "traindata.bin"
+    # validation_path = read_filepath + "validationdata.bin"
+
+    train_path = read_filepath + "testdata.bin"
+    validation_path = read_filepath + "testdata.bin"
 
     # Save the best model to specified folder, including current timestamp
-    bestmodel_path = save_filepath + "pilnet_model_" + str(datetime.datetime.now().timestamp().replace(' ', '_')) + ".bin"
+    bestmodel_path = (
+        save_filepath
+        + "pilnet_model_"
+        + str(datetime.datetime.now().timestamp()).replace(" ", "_")
+        + ".bin"
+    )
 
     # Details related to our QMDFAM graphs (desired number of features to use)
     num_node_feats = 16

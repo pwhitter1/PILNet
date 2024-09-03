@@ -1,14 +1,15 @@
+"""Separate data into train/validation/test set splits and normalize features.
+"""
+
 import torch
 
 import dgl
 from dgl.data.utils import save_graphs
 from dgl.data.utils import load_graphs
 
-import argparse
-
 
 def split_assignment_setID(
-    graphs: dgl.DGLGraph, trainset: list, validationset: list, testset: list
+    graphs: list[dgl.DGLGraph], trainset: list, validationset: list, testset: list
 ) -> tuple[list, list, list]:
     """Assign each graph its train/val/test split based on QMDFAM dataset specifications."""
 
@@ -44,7 +45,8 @@ def get_edge_feature_distribution(
 def normalize_edge_feature(
     graphs: list, edgefeature_normalization_ids: list, mean: float, std: float
 ) -> list:
-    """Normalize specified edge features in the graph based on input mean and standard deviation."""
+    """Normalize specified edge features in the graph based on
+        input mean and standard deviation."""
 
     batch_graphs = dgl.batch(graphs)
 
@@ -58,9 +60,9 @@ def normalize_edge_feature(
 
 def main(read_filepath: str, save_filepath: str):
 
-    trainset = []
-    validationset = []
-    testset = []
+    trainset = []  # type: list[dgl.DGLGraph]
+    validationset = []  # type: list[dgl.DGLGraph]
+    testset = []  # type: list[dgl.DGLGraph]
 
     """ Load graphs and assign to specified train/validation/test split """
 
