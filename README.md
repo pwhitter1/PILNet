@@ -43,15 +43,13 @@ Use the trained PILNet model(s) to predict the test set labels.
 
 ## PIL-Net Models:
 ### PILNet/src/models/
-Contains three trained PILNet models.<br>
+Contains three trained PILNet "PINN" models.<br>
 Each model is trained on the same dataset split, but each uses a differently seeded randomization.
 These models can be used for inference in lieu of running `TrainNetwork.py`.
 
 `pilnet_model1.bin`<br>
 `pilnet_model2.bin`<br>
 `pilnet_model3.bin`<br>
-
-TODO: Need to add updated PIL-Net models to file system
 
 ## Example executable file: run_example.py:
 
@@ -84,6 +82,9 @@ Their collective predictive error will be averaged.
 
 ### The following are the required libraries to run the codes and the corresponding versions we used.
 
+#### Environment 1
+Note: Use this environment to run all codes except ComputeReferenceMultipoles.py.
+
 `python==3.10.6`
 
 `cuda==11.2.67`
@@ -98,4 +99,17 @@ Their collective predictive error will be averaged.
 
 `torch==1.12.1 torchaudio==0.12.1 torchsummary==1.5.1 torchvision==0.13.1`
 
-`psi4==1.9.1` (run in a separate environment)
+#### Environment 2:
+Note: Only use this environment to run ComputeReferenceMultipoles.py.
+
+`python==3.10.14`
+
+`psi4==1.9.1`
+
+`numpy==1.26.4`
+
+`scipy==1.14.0`
+
+`dgl==0.9.1`
+
+`torch==2.4.0+cu118 torchaudio==2.4.0+cu118 torchdata==0.8.0 torchvision==0.19.0+cu118`

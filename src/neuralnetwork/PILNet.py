@@ -107,6 +107,7 @@ class PILNet(nn.Module):
         # Apply physics-informed constraints
         if self.model_type == "PINN":
 
+            # Make all atomic monopole values for Hydrogen atoms positive
             H_inds = (bgs.ndata["nfeats"][:, 0] == 1).nonzero(as_tuple=True)[0]
             prediction_mon[H_inds] = abs(prediction_mon[H_inds].clone())
             H_inds = []

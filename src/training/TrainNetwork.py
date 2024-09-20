@@ -23,6 +23,7 @@ def load_format_datasets(
     device: torch.device,
     train_path: str,
     validation_path: str,
+    model_type: str,
     model_precision: torch.dtype,
 ) -> tuple[list, list, float, float, float, float]:
     """Load, change precision, detrace, and obtain the loss function weights of the graphs."""
@@ -30,6 +31,8 @@ def load_format_datasets(
     traingraphs, validationgraphs = load_train_validation_datasets(
         train_path, validation_path
     )
+
+    print("Formatting dataset...", flush=True)
 
     """ Training graphs """
 
@@ -43,19 +46,27 @@ def load_format_datasets(
     batch_traingraphs = detrace_atomic_octupole_labels(batch_traingraphs)
 
     # Compute the multipole loss function weights
-    monopole_iqr = get_loss_func_weight(batch_traingraphs.ndata["label_monopoles"])  # type: ignore
-    dipole_iqr = get_loss_func_weight(batch_traingraphs.ndata["label_dipoles"])  # type: ignore
-    quadrupole_iqr = get_loss_func_weight(
-        batch_traingraphs.ndata["label_quadrupoles"]  # type: ignore
-    )  
-    octupole_iqr = get_loss_func_weight(batch_traingraphs.ndata["label_octupoles"])  # type: ignore
+    if model_type == "PINN":
+        monopole_iqr = get_loss_func_weight(batch_traingraphs.ndata["label_monopoles"])  # type: ignore
+        dipole_iqr = get_loss_func_weight(batch_traingraphs.ndata["label_dipoles"])  # type: ignore
+        quadrupole_iqr = get_loss_func_weight(
+            batch_traingraphs.ndata["label_quadrupoles"]  # type: ignore
+        )  
+        octupole_iqr = get_loss_func_weight(batch_traingraphs.ndata["label_octupoles"])  # type: ignore
 
-    sum_iqr = monopole_iqr + dipole_iqr + quadrupole_iqr + octupole_iqr
+        sum_iqr = monopole_iqr + dipole_iqr + quadrupole_iqr + octupole_iqr
 
-    monopole_weight = monopole_iqr / sum_iqr
-    dipole_weight = dipole_iqr / sum_iqr
-    quadrupole_weight = quadrupole_iqr / sum_iqr
-    octupole_weight = octupole_iqr / sum_iqr
+        monopole_weight = monopole_iqr / sum_iqr
+        dipole_weight = dipole_iqr / sum_iqr
+        quadrupole_weight = quadrupole_iqr / sum_iqr
+        octupole_weight = octupole_iqr / sum_iqr
+
+        print(f"Weights (mdqo): {monopole_weight}, {dipole_weight}, {quadrupole_weight}, {octupole_weight}", flush=True)
+
+    # Else set all the weights to 1
+    else:
+        monopole_weight, dipole_weight, quadrupole_weight, octupole_weight = 1, 1, 1, 1
+
 
     # Put graphs on GPU
     batch_traingraphs = batch_traingraphs.to(device)
@@ -94,6 +105,9 @@ def load_train_validation_datasets(
     train_path: str, validation_path: str
 ) -> tuple[list, list]:
     """Load graphs."""
+
+    print("Reading in dataset...", flush=True)
+
     traingraphs = load_graphs(train_path)
     traingraphs = traingraphs[0]
 
@@ -133,9 +147,6 @@ def convert_to_model_precision(
     batch_graphs.ndata["coordinates"] = batch_graphs.ndata["coordinates"].to(  # type: ignore
         model_precision
     )
-    batch_graphs.ndata["relative_coordinates"] = batch_graphs.ndata[
-        "relative_coordinates"
-    ].to(model_precision)  # type: ignore  
 
     return batch_graphs
 
@@ -347,6 +358,7 @@ def train_network(
     device: torch.device,
     model: PILNet,
     model_parameters: list,
+    model_id: str,
     train_dataloader: dgl.dataloading.GraphDataLoader,
     validation_dataloader: dgl.dataloading.GraphDataLoader,
     maxtraintime: float,
@@ -364,6 +376,8 @@ def train_network(
     model_precision: torch.dtype,
 ) -> None:
     """Train neural network and save best model."""
+
+    print("Performing model training...\n", flush=True)
 
     starttime = time.time()
 
@@ -423,14 +437,18 @@ def train_network(
             )
 
             # Compute scaled loss
-            loss = (
-                ((1 / monopole_weight) * monopoles_loss)
-                + ((1 / dipole_weight) * dipoles_loss)
-                + ((1 / quadrupole_weight) * quadrupoles_loss)
-                + ((1 / octupole_weight) * octupoles_loss)
-            )
+            if model_type == "PINN":
+                loss = (
+                    ((1 / monopole_weight) * monopoles_loss)
+                    + ((1 / dipole_weight) * dipoles_loss)
+                    + ((1 / quadrupole_weight) * quadrupoles_loss)
+                    + ((1 / octupole_weight) * octupoles_loss)
+                )
+            # Compute unscaled loss
+            else:
+                loss = (monopoles_loss + dipoles_loss + quadrupoles_loss + octupoles_loss)
 
-            # Only computing PINN penalties for diagnostic purposes
+            # NOTE: Only computing PINN penalties for diagnostic purposes
             # (does not affect network training)
             # Choose one random graph per epoch as penalty representative
             random_graph_index = random.randint(0, bgs.batch_size - 1)
@@ -491,7 +509,7 @@ def train_network(
             validation_dipoles_loss,
             validation_quadrupoles_loss,
             validation_octupoles_loss,
-        ) = validation(model, validation_dataloader, loss_function, model_type)
+        ) = validation(model, validation_dataloader, loss_function)
 
         # Compute scaled validation loss
         validation_loss = (
@@ -578,39 +596,40 @@ def train_network(
             flush=True,
         )
 
-        print("Weighted:")
-        print(
-            "Training | epoch loss {:.8f}, monopole loss {:.8f}, dipole loss {:.8f},"
-            " quadrupole loss {:.8f}, octupoles loss {:.8f}".format(
-                epoch_loss_weighted,
-                (1 / monopole_weight) * epoch_monopoles_loss,
-                (1 / dipole_weight) * epoch_dipoles_loss,
-                (1 / quadrupole_weight) * epoch_quadrupoles_loss,
-                (1 / octupole_weight) * epoch_octupoles_loss,
-            ),
-            flush=True,
-        )
-        print(
-            "Training | mon penalty total {:.8f}, mon penalty H {:.8f},"
-            " quad penalty {:.8f}, oct penalty {:.8f}".format(
-                (1 / monopole_weight) * epoch_monopoles_penalty_total,
-                (1 / monopole_weight) * epoch_monopoles_penalty_H,
-                (1 / quadrupole_weight) * epoch_quadrupoles_penalty,
-                (1 / octupole_weight) * epoch_octupoles_penalty,
-            ),
-            flush=True,
-        )
-        print(
-            "Validation | epoch loss {:.8f}, monopole loss {:.8f}, dipole loss {:.8f},"
-            " quadrupole loss {:.8f}, octupole loss {:.8f}\n".format(
-                validation_loss,
-                (1 / monopole_weight) * validation_monopoles_loss,
-                (1 / dipole_weight) * validation_dipoles_loss,
-                (1 / quadrupole_weight) * validation_quadrupoles_loss,
-                (1 / octupole_weight) * validation_octupoles_loss,
-            ),
-            flush=True,
-        )
+        if model_type == "PINN":
+            print("Weighted:")
+            print(
+                "Training | epoch loss {:.8f}, monopole loss {:.8f}, dipole loss {:.8f},"
+                " quadrupole loss {:.8f}, octupoles loss {:.8f}".format(
+                    epoch_loss_weighted,
+                    (1 / monopole_weight) * epoch_monopoles_loss,
+                    (1 / dipole_weight) * epoch_dipoles_loss,
+                    (1 / quadrupole_weight) * epoch_quadrupoles_loss,
+                    (1 / octupole_weight) * epoch_octupoles_loss,
+                ),
+                flush=True,
+            )
+            print(
+                "Training | mon penalty total {:.8f}, mon penalty H {:.8f},"
+                " quad penalty {:.8f}, oct penalty {:.8f}".format(
+                    (1 / monopole_weight) * epoch_monopoles_penalty_total,
+                    (1 / monopole_weight) * epoch_monopoles_penalty_H,
+                    (1 / quadrupole_weight) * epoch_quadrupoles_penalty,
+                    (1 / octupole_weight) * epoch_octupoles_penalty,
+                ),
+                flush=True,
+            )
+            print(
+                "Validation | epoch loss {:.8f}, monopole loss {:.8f}, dipole loss {:.8f},"
+                " quadrupole loss {:.8f}, octupole loss {:.8f}\n".format(
+                    validation_loss,
+                    (1 / monopole_weight) * validation_monopoles_loss,
+                    (1 / dipole_weight) * validation_dipoles_loss,
+                    (1 / quadrupole_weight) * validation_quadrupoles_loss,
+                    (1 / octupole_weight) * validation_octupoles_loss,
+                ),
+                flush=True,
+            )
 
         # Delete loss and penalty related values for the epoch
         del (
@@ -672,7 +691,6 @@ def validation(
     model: PILNet,
     validation_data_loader: dgl.dataloading.GraphDataLoader,
     loss_func: Callable,
-    model_type: str,
 ) -> tuple[float, float, float, float]:
     """Evaluate validation set on model."""
 
@@ -791,7 +809,9 @@ def PINN_penalties(
         quadrupole_penalty += abs(pred_quad[0] + pred_quad[3] + pred_quad[5])
 
         pred_oct = pred_oct_vectors[i]
-        octupole_penalty += abs(pred_oct[0] + pred_oct[6] + pred_oct[9])
+        octupole_penalty += abs(pred_oct[0] + pred_oct[3] + pred_oct[5])
+        octupole_penalty += abs(pred_oct[6] + pred_oct[1] + pred_oct[8])
+        octupole_penalty += abs(pred_oct[9] + pred_oct[2] + pred_oct[7])
 
     quadrupole_penalty /= num_nodes
     octupole_penalty /= num_nodes
@@ -810,19 +830,17 @@ def main(read_filepath: str, save_filepath: str):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # train_path = read_filepath + "traindata.bin"
-    # validation_path = read_filepath + "validationdata.bin"
-
-    train_path = read_filepath + "testdata.bin"
-    validation_path = read_filepath + "testdata.bin"
+    train_path = read_filepath + "traindata.bin"
+    validation_path = read_filepath + "validationdata.bin"
 
     # Save the best model to specified folder, including current timestamp
+    model_id = "pilnet_model_" + str(datetime.datetime.now().timestamp()).replace(" ", "_")
     bestmodel_path = (
         save_filepath
-        + "pilnet_model_"
-        + str(datetime.datetime.now().timestamp()).replace(" ", "_")
+        + model_id
         + ".bin"
     )
+    print(f"Best model path: {bestmodel_path}")
 
     # Details related to our QMDFAM graphs (desired number of features to use)
     num_node_feats = 16
@@ -834,6 +852,7 @@ def main(read_filepath: str, save_filepath: str):
 
     model_type = "PINN"
     # model_type = "Non-PINN"
+    print(f"Model type: {model_type}")
 
     model_precision = torch.float32
 
@@ -845,7 +864,7 @@ def main(read_filepath: str, save_filepath: str):
         dipole_weight,
         quadrupole_weight,
         octupole_weight,
-    ) = load_format_datasets(device, train_path, validation_path, model_precision)
+    ) = load_format_datasets(device, train_path, validation_path, model_type, model_precision)
 
     # Set neural network parameters
     (
@@ -873,6 +892,7 @@ def main(read_filepath: str, save_filepath: str):
         device,
         model,
         model_parameters,
+        model_id,
         train_dataloader,
         validation_dataloader,
         maxtraintime,

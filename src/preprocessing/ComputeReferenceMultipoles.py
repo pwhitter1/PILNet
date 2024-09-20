@@ -91,11 +91,11 @@ def compute_reference_molecular_moments(
     ref_quadrupole_moments = wfn_variables[
         "MBIS MULTIPOLE MOMENTS QUADRUPOLE"
     ].to_array()
-    ref_quadrupole_moments = ref_quadrupole_moments * B_to_A**2
+    ref_quadrupole_moments = ref_quadrupole_moments * (B_to_A**2)
 
     # MBIS octupole moment
     ref_octupole_moments = wfn_variables["MBIS MULTIPOLE MOMENTS OCTUPOLE"].to_array()
-    ref_octupole_moments = ref_octupole_moments * B_to_A**3
+    ref_octupole_moments = ref_octupole_moments * (B_to_A**3)
 
     return ref_quadrupole_moments, ref_octupole_moments
 
@@ -115,6 +115,7 @@ def conv_one_hot_to_str(onehot: torch.Tensor, element_types: list) -> str:
 def get_multipole_moments(
     testgraphs: list,
     num_reference_molecules: int, 
+    seed_value: int,
     element_types: list, 
     save_filepath: str
 ) -> None:
@@ -126,7 +127,7 @@ def get_multipole_moments(
 
     # Generate "num_reference_molecules" random numbers, with seeded value 
     # for consistency when using values in PredictNetwork.py
-    random.seed(42)
+    random.seed(seed_value)
     rand_nums = random.sample(range(len(testgraphs)), num_reference_molecules)
     print(f"Random numbers: {rand_nums}", flush=True)
 
@@ -198,6 +199,8 @@ def main(read_filepath: str, save_filepath: str):
 
     # Number of molecules for which to compute reference multipole moments
     num_reference_molecules = 50
+    # For consistent random number generation
+    seed_value = 42
 
     # Obtain the reference multipole moments
-    get_multipole_moments(testgraphs, num_reference_molecules, element_types, test_save_filepath)
+    get_multipole_moments(testgraphs, num_reference_molecules, seed_value, element_types, test_save_filepath)
