@@ -82,7 +82,7 @@ def load_format_dataset(
 def load_test_dataset(test_path: str) -> list:
     """Load graphs."""
 
-    print("Reading in dataset...", flush=True)
+    print("\nReading in dataset...", flush=True)
 
     testgraphs = load_graphs(test_path)
     testgraphs = testgraphs[0]
@@ -611,7 +611,7 @@ def main(read_filepath_splits: str, read_filepath_model: str):
     # These are the indices of the reference molecular quadrupoles and octupoles
     # computed using psi4
     if model_type == "PINN":
-        computed_multipole_indices = np.load("random_numbers.npy")
+        computed_multipole_indices = np.load("src/data/random_numbers.npy")
         print(
             f"\nTest indices for molecular quadrupole and octupoles: {computed_multipole_indices}"
         )

@@ -78,7 +78,7 @@ def main(read_filepath: str, save_filepath: str):
     )
     graphs_gdb_data = []
 
-    print("Number of training graphs: {}".format(len(trainset)), flush=True)
+    print("\nNumber of training graphs: {}".format(len(trainset)), flush=True)
     print("Number of validation graphs: {}".format(len(validationset)), flush=True)
     print("Number of test graphs {}".format(len(testset)), flush=True)
 

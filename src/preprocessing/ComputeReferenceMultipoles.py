@@ -132,7 +132,7 @@ def get_multipole_moments(
     print(f"Random numbers: {rand_nums}", flush=True)
 
     # Save the chosen random numbers to external file
-    with open("random_numbers.npy", "wb") as file:
+    with open("src/data/random_numbers.npy", "wb") as file:
         np.save(file, np.array(rand_nums))
 
     # Iterate over specified test graphs

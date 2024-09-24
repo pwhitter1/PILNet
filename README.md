@@ -6,7 +6,7 @@
 
 The QM Dataset for Atomic Multipoles (QMDFAM) is publicly accessible here: https://doi.org/10.3929/ethz-b-000509052.<br>
 The `data.hdf5` and `data_gdb.hdf5` dataset files must be downloaded separately to run our experiments.<br>
-Once downloaded, they can be placed in the `PILNet/src/datasets/` directory.<br>
+Once downloaded, they can be placed in the `PILNet/src/data/dataset/` subdirectory.<br>
 
 Following this, you can run the sample program as `python run_example.py`, which will execute the full PIL-Net machine learning pipeline,
 including data preprocessing, model training, and model inference.
@@ -23,7 +23,7 @@ Contains class definition for PIL-Net model convolutional layer.
 
 ## Machine Learning Pipeline:
 
-### ** The main function of these files must be run from inside the `PILNet/` project directory, in the following numbered order. **
+### ** These files must be run in the following numbered order (see run_example.py). **
 
 ### 1. PILNet/src/preprocessing/ExtractFeatures.py
 Read in dataset information, extract features, and save each molecule representation as a DGL graph.
@@ -31,7 +31,7 @@ Read in dataset information, extract features, and save each molecule representa
 ### 2. PILNet/src/preprocessing/SplitData_NormalizeFeatures.py
 Separate data into train/validation/test set splits and normalize features.
 
-### 3. PILNet/src/preprocessing/ComputeReferenceMultipoles.py **
+### 3. PILNet/src/preprocessing/ComputeReferenceMultipoles.py
 Use PSI4 to compute reference molecular quadrupole and octupole multipole moments (unavailable in QMDFAM)
 for some of the test set graphs.
 
@@ -42,7 +42,7 @@ Train a PILNet model using the training and validation dataset splits.
 Use the trained PILNet model(s) to predict the test set labels.
 
 ## PIL-Net Models:
-### PILNet/src/models/
+### PILNet/src/models/saved_pilnet_models/
 Contains three trained PILNet "PINN" models.<br>
 Each model is trained on the same dataset split, but each uses a differently seeded randomization.
 These models can be used for inference in lieu of running `TrainNetwork.py`.
@@ -60,34 +60,34 @@ These models can be used for inference in lieu of running `TrainNetwork.py`.
 <i>save_filepath</i>: Path to directory to save DGL graphs of QMDFAM data<br>
 
 ### 2. SplitData_NormalizeFeatures.py
-<i>read_filepath</i>: Path to directory containing .bin files with DGL graphs of QMDFAM data<br>
+<i>read_filepath</i>: Path to directory containing .bin files with DGL graphs<br>
 <i>save_filepath</i>: Path to directory to save train/val/test splits of DGL graphs<br>
 
 ### 3. ComputeReferenceMultipoles.py
-<i>read_filepath</i>: Path to directory containing test set splits of DGL graphs<br>
-<i>save_filepath</i>: Path to directory save updated test set splits (new reference labels) of DGL graphs<br>
+<i>read_filepath</i>: Path to directory containing test set split of DGL graphs<br>
+<i>save_filepath</i>: Path to directory to save updated test set split of DGL graphs (new reference labels)<br>
 
 ### 4. TrainNetwork.py
-<i>read_filepath</i>: Path to directory containing train/val/test splits of DGL graphs<br>
+<i>read_filepath</i>: Path to directory containing train/val/test splits<br>
 <i>save_filepath</i>: Path to directory to save trained pytorch model<br>
 
 ### 5. PredictNetwork.py
-<i>read_filepath_splits</i>: Path to directory to containing train/val/test splits of DGL graphs<br>
+<i>read_filepath_splits</i>: Path to directory to containing train/val/test splits<br>
 <i>read_filepath_model</i>: Path to directory to trained pytorch model(s)<br>
 
-Note: All `.bin` files immediately inside the specified model directory will be used for model inference.
+Note: All `.bin` files one level inside the specified `model` directory will be used for model inference.
 Their collective predictive error will be averaged.
 
 ## Code Dependencies:
 
-### The following are the required libraries to run the codes and the corresponding versions we used.
-
-#### Environment 1
-Note: Use this environment to run all codes except ComputeReferenceMultipoles.py.
-
-`python==3.10.6`
+### The following are the software libraries required to run the PIL-Net codes, as well as the corresponding versions used when running the experiments.
 
 `cuda==11.2.67`
+
+#### Environment 1:
+Note: Use this environment to run all codes except `ComputeReferenceMultipoles.py`.
+
+`python==3.10.6`
 
 `numpy==1.21.2`
 
@@ -100,7 +100,7 @@ Note: Use this environment to run all codes except ComputeReferenceMultipoles.py
 `torch==1.12.1 torchaudio==0.12.1 torchsummary==1.5.1 torchvision==0.13.1`
 
 #### Environment 2:
-Note: Only use this environment to run ComputeReferenceMultipoles.py.
+Note: Due to version conflicts, only use this environment to run `ComputeReferenceMultipoles.py`.
 
 `python==3.10.14`
 
