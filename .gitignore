@@ -1,6 +1,7 @@
 [Slurm]
 slurm-*
 saved_slurmfiles/*
+*.sub
 
 [Pycache]
 __pycache__
@@ -8,12 +9,15 @@ __pycache__
 [MacOS]
 .DS_Store
 
-[Bash script]
-*.sub
-
 [PSI4]
 *.clean
 *.dat
+
+[Jupyter]
+.ipynb_checkpoints
+
+[splits]
+testdata.bin
 
 [Other files]
 other_files/

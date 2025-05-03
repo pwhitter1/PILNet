@@ -61,11 +61,11 @@ Subsequently, the script can be run as:
 ## Instructions: Running PIL-Net Code (Quickstart)
 
 A Juypter notebook `model_evaluation_script.ipynb` has been provided in the `PILNet/scripts/` subdirectory.<br>
-After installing the PIL-Net package dependencies, 
-this notebook can be run to evaluate trained PIL-Net model(s) on the QMDFAM test set and plot the results.<br>
-This notebook should be run in the same `conda` environment that was created with `install.sh`.<br>
-The graph-formatted test data and the trained PIL-Net models required to run this script are already provided in the<br>
-`PILNet/data/splits/` and `PILNet/saved_models/trained_models/` subdirectories, respectively.<br>
+This notebook can be used to evaluate trained PIL-Net model(s) on the QMDFAM test set and plot the results.<br>
+The notebook should be run in the same `conda` environment that was created with `install.sh`.<br>
+The PIL-Net graph-formatted QMDFAM test dataset has been uploaded here: https://figshare.com/s/8cb46a680f883e96627f<br> 
+This `testdata.bin` file should be downloaded and placed in the `PILNet/data/splits/` subdirectory prior to running the Jupyter notebook.<br>
+The trained PIL-Net models are already provided in the `PILNet/saved_models/trained_models/` subdirectory.<br>
 
 ## Instructions: Running PIL-Net Code (Full Pipeline)
 
