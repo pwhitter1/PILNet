@@ -14,3 +14,6 @@ __pycache__
 [PSI4]
 *.clean
 *.dat
+
+[Other files]
+other_files/

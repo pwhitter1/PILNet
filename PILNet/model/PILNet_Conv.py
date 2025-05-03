@@ -68,8 +68,26 @@ class PILNet_Conv(nn.Module):
             nn.Linear(hidden_dim, num_coord_feats), activation
         )
 
-    def edge_udf(self, edges: dgl.udf.EdgeBatch) -> dict:  # type: ignore
-        """Perform edge convolution."""
+    def edge_udf(self, edges: dgl.udf.EdgeBatch) -> dict[str, torch.Tensor]:  # type: ignore
+        """
+        Function to perform message passing across the edges of the graphs.
+        
+            With respect to each node, the created feature is a function of the following: 
+                a) the node features of the neighboring nodes
+                b) the adjacent edge features
+                c) the distance between itself and its neighbors
+
+        Parameters
+        ----------
+        edges: dgl.udf.EdgeBatch
+            Batch of DGL graph edges.
+
+        Returns
+        -------
+        dict[str, torch.Tensor]: 
+            Contains updated feature following the graph convolution.
+        
+        """
 
         return {
             "x": (
@@ -85,14 +103,39 @@ class PILNet_Conv(nn.Module):
         cfeats: torch.Tensor,
         efeats: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """'PILNet_Conv function for forward pass through convolutional layer."""
+        """
+        PIL-Net function for forward pass through convolutional layer.
+
+        Parameters
+        ----------
+        bgs: dgl.DGLGraph
+            Batched group of DGL graphs.
+        hfeats: torch.Tensor
+            Node features associated with batched graphs.
+        cfeats: torch.Tensor
+            Coordinate features associated with batched graphs.
+        efeats: torch.Tensor
+            Edge features associated with batched graphs.
+
+
+        Returns
+        -------
+        hfeats: torch.Tensor
+            Updated node features following graph convolution.
+        cfeats: torch.Tensor
+            Updated coordinate features following graph convolution.
+        efeats: torch.Tensor
+            Updated edge features following graph convolution.
+
+        """
 
         # Apply linear layer (increase dimension) and non-linear activation to each feature
         bgs.ndata["h"] = self.node_expansion(hfeats)
         bgs.edata["e"] = self.edge_expansion(efeats)
         bgs.ndata["c"] = self.coord_expansion(cfeats)
 
-        # Graph convolution (update each feature based on the features' of its neighbors)
+        # Graph convolution - message passing across the edges
+        # (Each node feature will be updated based on this combination of the features' of its neighbors)
         bgs.apply_edges(self.edge_udf)
         bgs.update_all(fn.copy_e("x", "m"), fn.sum("m", "k"))  # type: ignore
 

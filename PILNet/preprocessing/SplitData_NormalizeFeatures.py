@@ -10,8 +10,31 @@ from dgl.data.utils import load_graphs
 
 def split_assignment_setID(
     graphs: list[dgl.DGLGraph], trainset: list, validationset: list, testset: list
-) -> tuple[list, list, list]:
-    """Assign each graph its train/val/test split based on QMDFAM dataset specifications."""
+) -> tuple[list[dgl.DGLGraph], list[dgl.DGLGraph], list[dgl.DGLGraph]]:
+    """
+    Function to assign each graph its training/val/test split based on the QMDFAM dataset specifications.
+
+    Parameters
+    -------
+    graphs: list[dgl.DGLGraph]
+        List of graph-structured data.
+    trainset: list
+        Empty list.
+    validationset: list
+        Empty list.
+    testset: list
+        Empty list.
+
+    Returns
+    ----------
+    trainset: list[dgl.DGLGraph]
+        List of DGL graphs assigned to the training set.
+    validationset: list[dgl.DGLGraph]
+        List of DGL graphs assigned to the validation set.
+    testset: list[dgl.DGLGraph]
+        List of DGL graphs assigned to the test set.
+
+    """
 
     for i in range(len(graphs)):
 
@@ -29,9 +52,26 @@ def split_assignment_setID(
 
 
 def get_edge_feature_distribution(
-    trainset: list, edgefeature_normalization_ids: list
+    trainset: list[dgl.DGLGraph], edgefeature_normalization_ids: list[int]
 ) -> tuple[float, float]:
-    """Get mean and std of specified edge features."""
+    """
+    Function to obtain the mean and standard deviation of the specified edge features.
+
+    Parameters
+    -------
+    trainset: list[dgl.DGLGraph]
+        List of graphs belonging to the training set.
+    edgefeature_normalization_ids: list[int]
+        List of identifiers associated with edge feature(s) to normalize.
+
+    Returns
+    ----------
+    mean: float
+        Mean of the specified edge feature(s)
+    std: float
+        Standard deviation of the specified edge feature(s)
+
+    """
 
     batch_graphs = dgl.batch(trainset)
     edge_features = batch_graphs.edata["efeats"][:, edgefeature_normalization_ids]
@@ -43,10 +83,30 @@ def get_edge_feature_distribution(
 
 
 def normalize_edge_feature(
-    graphs: list, edgefeature_normalization_ids: list, mean: float, std: float
-) -> list:
-    """Normalize specified edge features in the graph based on
-        input mean and standard deviation."""
+    graphs: list[dgl.DGLGraph], edgefeature_normalization_ids: list[int], mean: float, std: float
+) -> list[dgl.DGLGraph]:
+    """
+    Function to normalize the specified edge features in the graph,
+        based on the input mean and standard deviation.
+
+    Parameters
+    -------
+    trainset: list[dgl.DGLGraph]
+        List of graphs belonging to the training set.
+    edgefeature_normalization_ids: list[int]
+        List of identifiers associated with edge feature(s) to normalize.
+    mean: float
+        Mean of the specified edge feature(s)
+    std: float
+        Standard deviation of the specified edge feature(s)
+
+
+    Returns
+    ----------
+    normalized_graphs: list[dgl.DGLGraph]
+        List of DGL graphs with the specifed edge features normalized.
+
+    """
 
     batch_graphs = dgl.batch(graphs)
 
@@ -59,6 +119,22 @@ def normalize_edge_feature(
 
 
 def main(read_filepath: str, save_filepath: str):
+    """
+    Main function for splitting dataset into training/validation/test sets
+        and for normalizing the relevant feature.
+
+    Parameters
+    ----------
+    read_filepath: str
+        constructed QMDFAM graphs and formatted labels
+    save_filepath: str
+        Path to save dataset training/validation/test splits.
+
+    Returns
+    -------
+    None
+
+    """
 
     trainset = []  # type: list[dgl.DGLGraph]
     validationset = []  # type: list[dgl.DGLGraph]
@@ -103,3 +179,5 @@ def main(read_filepath: str, save_filepath: str):
     save_graphs(save_filepath + "traindata.bin", trainset)
     save_graphs(save_filepath + "validationdata.bin", validationset)
     save_graphs(save_filepath + "testdata.bin", testset)
+    
+    print("Graph splits saved.")

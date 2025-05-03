@@ -14,8 +14,23 @@ import time
 import random
 
 
-def load_format_dataset(test_path: str, model_precision: torch.dtype) -> list:
-    """Load and change precision of the graphs."""
+def load_format_dataset(test_path: str, model_precision: torch.dtype) -> list[dgl.DGLGraph]:
+    """
+    Function to load DGL graphs and modify the precision of their features.
+
+    Parameters
+    -------
+    test_path: str
+        Filepath to test set graphs.
+    model_precision: torch.dtype
+        Precision to apply to graph features.
+
+    Returns
+    ----------
+    testgraphs: list[dgl.DGLGraph]
+        List of test set graphs with features adhering to specified precision.
+
+    """
 
     testgraphs = load_test_dataset(test_path)
     batch_testgraphs = dgl.batch(testgraphs)
@@ -36,18 +51,49 @@ def load_format_dataset(test_path: str, model_precision: torch.dtype) -> list:
     return testgraphs
 
 
-def load_test_dataset(test_path: str) -> list:
-    """Load graphs."""
-    testgraphs = load_graphs(test_path)
-    testgraphs = testgraphs[0]
+def load_test_dataset(test_path: str) -> list[dgl.DGLGraph]:
+    """
+    Function to load test set graphs from file.
+
+    Parameters
+    -------
+    test_path: str
+        Filepath to test set graphs.
+
+    Returns
+    ----------
+    testgraphs: list[dgl.DGLGraph]
+        List of test set graphs.
+
+    """
+
+    testgraphs = load_graphs(test_path)[0]
     return testgraphs
 
 
 def compute_reference_molecular_moments(
     elements: np.ndarray, coordinates: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Obtain reference molecular quadrupole and octupole moments from psi4.
+    """
+    Function to obtain reference molecular quadrupole and octupole moments from PSI4.
     Code adapted from EquivariantMultipoleGNN/how_to_use.ipynb script available on GitHub.
+
+    Parameters
+    -------
+    elements: np.ndarray
+        Array of elements associated with a particular molecule.
+    coordinates: np.ndarray
+        Array of Cartesian coordinates associated with a particular molecule.
+
+    Returns
+    ----------
+    ref_quadrupole_moments: np.ndarray
+        Array of molecular quadrupole moments associated with a particular molecule,
+            computed using the PSI4 library.
+    ref_octupole_moments: np.ndarray
+        Array of molecular octupole moments associated with a particular molecule,
+            computed using the PSI4 library.
+
     """
 
     # Generate grid.dat file so that 'GRID_ESP' method can integrate
@@ -101,7 +147,29 @@ def compute_reference_molecular_moments(
 
 
 def conv_one_hot_to_str(onehot: torch.Tensor, element_types: list) -> str:
-    """Convert one hot encoding to element type."""
+    """
+    Function to undo a one-hot encoding 
+        (convert one-hot encoding to element type).
+
+    Parameters
+    -------
+    onehot: torch.Tensor
+        Tensor of the one-hot encoding of an element.
+    element_types: list
+        Exhaustive list of elements present in the dataset.
+
+    Returns
+    ----------
+    str: Atomic symbol correponding to the input one-hot encoding.
+
+    Raises
+    ------
+    ValueError:
+        If the input one-hot encoding is unexpected.
+
+
+    """
+
     for i in range(len(onehot)):
         if onehot[i] == 1:
             return element_types[i].decode("utf-8")
@@ -113,14 +181,38 @@ def conv_one_hot_to_str(onehot: torch.Tensor, element_types: list) -> str:
 
 
 def get_multipole_moments(
-    testgraphs: list,
+    testgraphs: list[dgl.DGLGraph],
     num_reference_molecules: int, 
     seed_value: int,
-    element_types: list, 
-    save_filepath: str
+    element_types: list[bytes], 
+    test_save_filepath: str,
+    rand_nums_save_filepath: str
 ) -> None:
-    """Use psi4 library to obtain reference molecular quadrupole
-    and molecular octupole moments for the test set.
+    """
+    Function to use the Psi4 library to obtain reference molecular quadrupole
+        and molecular octupole moments for the test set.
+
+    Parameters
+    -------
+    testgraphs: list[dgl.DGGraph]
+        List of test set graphs with features adhering to specified precision.
+    num_reference_molecules: int
+        Number of molecules for which to generate molecular multipole moments.
+    seed_value: int
+        Seed used for random generator to decide the molecules for which to generate
+            the multipole moments.
+    element_types: list[bytes]
+        Exhaustive list of elements present in the dataset.
+    test_save_filepath: str
+        Path to save test set graphs with updated molecular multipole moment information.
+    rand_nums_save_filepath: str
+        Path to numpy array containing the indices of the molecules with the updated
+            molecular multipole moment information.
+
+    Returns
+    ----------
+    None
+
     """
 
     elapsed_time = 0.0
@@ -130,9 +222,10 @@ def get_multipole_moments(
     random.seed(seed_value)
     rand_nums = random.sample(range(len(testgraphs)), num_reference_molecules)
     print(f"Random numbers: {rand_nums}", flush=True)
+    random.seed(None)
 
     # Save the chosen random numbers to external file
-    with open("src/data/random_numbers.npy", "wb") as file:
+    with open(rand_nums_save_filepath, "wb") as file:
         np.save(file, np.array(rand_nums))
 
     # Iterate over specified test graphs
@@ -181,14 +274,30 @@ def get_multipole_moments(
 
         testgraphs[i] = graph
 
-    save_graphs(save_filepath, testgraphs)
+    save_graphs(test_save_filepath, testgraphs)
     print(f"Elapsed Time: {elapsed_time/60} minutes")
 
 
 def main(read_filepath: str, save_filepath: str):
+    """
+    Main function for computing molecular multipole moments using the PSI4 library.
+
+    Parameters
+    ----------
+    read_filepath: str
+        Path to existing test set graphs.
+    save_filepath: str
+        Path to save test set graphs with updated molecular multipole moment information.
+
+    Returns
+    -------
+    None
+
+    """
 
     test_read_filepath = read_filepath + "testdata.bin"
     test_save_filepath = save_filepath + "testdata.bin"
+    rand_nums_save_filepath = save_filepath + "molecular_multipole_indices.npy"
 
     # Details related to QMDFAM
     element_types = [b"H", b"C", b"N", b"O", b"F", b"S", b"CL"]
@@ -203,4 +312,4 @@ def main(read_filepath: str, save_filepath: str):
     seed_value = 42
 
     # Obtain the reference multipole moments
-    get_multipole_moments(testgraphs, num_reference_molecules, seed_value, element_types, test_save_filepath)
+    get_multipole_moments(testgraphs, num_reference_molecules, seed_value, element_types, test_save_filepath, rand_nums_save_filepath)

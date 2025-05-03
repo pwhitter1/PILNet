@@ -16,7 +16,7 @@ import datetime
 
 from typing import Callable
 
-from ..neuralnetwork.PILNet import PILNet
+from ..model.PILNet import PILNet
 
 
 def load_format_datasets(
@@ -25,8 +25,39 @@ def load_format_datasets(
     validation_path: str,
     model_type: str,
     model_precision: torch.dtype,
-) -> tuple[list, list, float, float, float, float]:
-    """Load, change precision, detrace, and obtain the loss function weights of the graphs."""
+) -> tuple[list[dgl.DGLGraph], list[dgl.DGLGraph], float, float, float, float]:
+    """
+    Function to load, change precision, detrace, and obtain the loss function weights of the graphs.
+
+    Parameters
+    -------
+    device: torch.device
+        Either a cpu or cuda device.
+    train_path: str
+        Path to training set graphs.
+    validation_path: str
+        Path to validation set graphs.
+    model_type: str
+        Whether the model is a "PINN" or Non-PINN" model.
+    model_precision: torch.dtype
+        Precision to apply to graph features and labels.
+
+    Returns
+    ----------
+    traingraphs: list[dgl.DGLGraph]
+        List of training set graphs.
+    validationgraphs: list[dgl.DGLGraph]
+        List of validation graphs.
+    monopole_weight: float
+        Weight associated with the atomic monopoles for the neural network loss function.
+    dipole_weight: float
+        Weight associated with the atomic dipoles for the neural network loss function.
+    quadrupole_weight: float
+         Weight associated with the atomic quadrupoles for the neural network loss function.
+    octupole_weight: float
+         Weight associated with the atomic octupoles for the neural network loss function.
+
+    """
 
     traingraphs, validationgraphs = load_train_validation_datasets(
         train_path, validation_path
@@ -103,8 +134,25 @@ def load_format_datasets(
 
 def load_train_validation_datasets(
     train_path: str, validation_path: str
-) -> tuple[list, list]:
-    """Load graphs."""
+) -> tuple[list[dgl.DGLGraph], list[dgl.DGLGraph]]:
+    """
+    Function to load training set and validation set graphs from file.
+
+    Parameters
+    -------
+    train_path: str
+        Filepath to training set graphs.
+    validation_path: str
+        Filepath to validation set graphs.
+
+    Returns
+    ----------
+    traingraphs: list[dgl.DGLGraph]
+        List of training set graphs.
+    validationgraphs: list[dgl.DGLGraph]
+        List of validation set graphs.
+
+    """
 
     print("Reading in dataset...", flush=True)
 
@@ -120,7 +168,22 @@ def load_train_validation_datasets(
 def convert_to_model_precision(
     batch_graphs: dgl.DGLGraph, model_precision: torch.dtype
 ) -> dgl.DGLGraph:
-    """Convert data and labels to specified model precision."""
+    """
+    Function to data and labels to the specified model precision.
+
+    Parameters
+    -------
+    batch_graphs: dgl.DGLGraph
+        Grouping of DGL graphs.
+    model_precision: torch.dtype
+        Precision to apply to graph features and labels.
+
+    Returns
+    ----------
+    batch_graphs: dgl.DGLGraph
+        Grouping of DGL graphs with precision applied.
+
+    """
 
     batch_graphs.ndata["nfeats"] = batch_graphs.ndata["nfeats"].to(model_precision)  # type: ignore
     batch_graphs.edata["efeats"] = batch_graphs.edata["efeats"].to(model_precision)  # type: ignore
@@ -152,8 +215,21 @@ def convert_to_model_precision(
 
 
 def detrace_quadrupoles(quadrupoles: torch.Tensor) -> torch.Tensor:
-    """Detrace the quadrupoles.
-    Each row is organized as: xx xy xz yy yz zz."""
+    """
+    Function to detrace the quadrupole moments.
+        Each row is organized as: xx xy xz yy yz zz.
+
+    Parameters
+    -------
+    quadrupoles: torch.Tensor
+        Tensor of quadrupole moment values.
+
+    Returns
+    ----------
+    quadrupoles: torch.Tensor
+        Tensor of detraced quadrupole moment values.
+
+    """
 
     inds = [0, 3, 5]
     trace = torch.sum(quadrupoles[:, inds], dim=1)
@@ -166,8 +242,20 @@ def detrace_quadrupoles(quadrupoles: torch.Tensor) -> torch.Tensor:
 
 
 def detrace_atomic_quadrupole_labels(graphs: dgl.DGLGraph) -> dgl.DGLGraph:
-    """Detrace atomic quadrupole labels from DGL graphs.
-    Each vector is organized as: xx xy xz yy yz zz."""
+    """
+    Function to detrace the atomic quadrupole moment labels from DGL graphs.
+
+    Parameters
+    -------
+    graphs: dgl.DGLGraph
+        Graphs containing the quadrupole moment labels to detrace.
+
+    Returns
+    ----------
+    graphs: dgl.DGLGraph
+        Graphs containing the detraced quadrupole moment labels.
+
+    """
 
     quadrupoles = detrace_quadrupoles(graphs.ndata["label_quadrupoles"])  # type: ignore
     graphs.ndata["label_quadrupoles"] = quadrupoles
@@ -176,8 +264,21 @@ def detrace_atomic_quadrupole_labels(graphs: dgl.DGLGraph) -> dgl.DGLGraph:
 
 
 def detrace_octupoles(octupoles: torch.Tensor) -> torch.Tensor:
-    """Detrace the octupoles.
-    Each row is organized as: xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz."""
+    """
+    Function to detrace the octupole moments.
+        Each row is organized as: xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz.
+
+    Parameters
+    -------
+    octupoles: torch.Tensor
+        Tensor of octupole moment values.
+
+    Returns
+    ----------
+    octupoles: torch.Tensor
+        Tensor of detraced octupole moment values.
+
+    """
 
     x = [0, 6, 9]
     y = [3, 1, 2]
@@ -195,8 +296,20 @@ def detrace_octupoles(octupoles: torch.Tensor) -> torch.Tensor:
 
 
 def detrace_atomic_octupole_labels(graphs: dgl.DGLGraph) -> dgl.DGLGraph:
-    """Detrace atomic octupole labels from DGL graphs.
-    Each vector is organized as: xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz."""
+    """
+    Function to detrace the atomic octupole moment labels from DGL graphs.
+
+    Parameters
+    -------
+    graphs: dgl.DGLGraph
+        Graphs containing the octupole moment labels to detrace.
+
+    Returns
+    ----------
+    graphs: dgl.DGLGraph
+        Graphs containing the detraced octupole moment labels.
+
+    """
 
     octupoles = detrace_octupoles(graphs.ndata["label_octupoles"])  # type: ignore
     graphs.ndata["label_octupoles"] = octupoles
@@ -205,7 +318,22 @@ def detrace_atomic_octupole_labels(graphs: dgl.DGLGraph) -> dgl.DGLGraph:
 
 
 def get_loss_func_weight(data: torch.Tensor) -> float:
-    """Get multipole loss function weight based on label distribution."""
+    """
+    Function for obtaining the loss function weights for each atomic multipole moment, 
+        based on the label distribution.
+
+    Parameters
+    -------
+    data: torch.Tensor
+        Atomic multipole moment labels.
+
+    Returns
+    ----------
+    avg_iqr: float
+        The interquartile range for the input label, averaged across the dimension of the label.
+            (e.g., atomic dipole moment labels have dimension 3)
+
+    """
 
     iqr = 0
 
@@ -220,24 +348,75 @@ def get_loss_func_weight(data: torch.Tensor) -> float:
 
 def set_network_parameters(
     device: torch.device,
-    traingraphs: list,
-    validationgraphs: list,
+    traingraphs: list[dgl.DGLGraph],
+    validationgraphs: list[dgl.DGLGraph],
     num_node_feats: int,
     num_edge_feats: int,
     model_type: str,
     model_precision: torch.dtype,
 ) -> tuple[
     PILNet,
-    list,
+    list[int, int, int, torch.nn.Module],
     dgl.dataloading.GraphDataLoader,
     dgl.dataloading.GraphDataLoader,
-    Callable,
-    list,
-    list,
-    list,
-    list,
+    torch.nn.modules.loss._Loss,
+    list[torch.optim.Optimizer, torch.optim.Optimizer, torch.optim.Optimizer, torch.optim.Optimizer],
+    list[float],
+    list[torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler._LRScheduler],
+    list[float, float, float],
 ]:
-    """Specify parameters used in PIL-Net."""
+    """
+    Function for specifying parameters and hyperparameters to be used in the PIL-Net pipeline.
+
+    Parameters
+    -------
+    device: torch.device
+        Either a cpu or cuda device.
+    traingraphs: list[dgl.DGLGraph]
+        List of training set graphs.
+    validationgraphs: list[dgl.DGLGraph]
+        List of validation graphs.
+    num_node_feats: int
+        Dimension of node feature vector for each node.
+    num_edge_feats: int
+        Dimension of edge feature vector for each edge.
+    model_type: str
+        Whether the model is a "PINN" or Non-PINN" model.
+    model_precision: torch.dtype
+        Precision to apply to graph features and labels,
+            as well as the model weights.
+
+    Returns
+    ----------
+    model: PILNet
+        Initialized PILNet model.
+    model_parameters: list[int, int, int, torch.nn.Module]
+        num_node_feats (as above)
+        num_edge_feats (as above)
+        hidden_dim:
+            Number of hidden neurons in layers (width of neural network)
+        activation:
+            Non-linear activation function.
+    train_dataloader: dgl.dataloading.GraphDataLoader
+        Object for facilitating the loading of
+            the training set data during model training.
+    validation_dataloader: dgl.dataloading.GraphDataLoader
+        Object for facilitating the loading of
+            the validation set data during model training.
+    loss_function: torch.nn.modules.loss._Loss
+        Loss function used during model training.
+    optimizer_list: list[torch.optim.Optimizer, torch.optim.Optimizer, torch.optim.Optimizer, torch.optim.Optimizer]
+        Optimizers used during model training, one for each atomic multipole type.
+    optimizer_parameters: list[float]
+        Starting learning rate used by optmizer during model training.
+    scheduler_list: list[torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler._LRScheduler]
+        Learning rate scheduler used during model training, one for each multipole type.
+    scheduler_parameters: list[float, float, float]
+        lr_factor: Factor by which learning rate is reduced during model training.
+        lr_threshold: Threshold used when determining newest optimal learning rate during model training.
+        lr_patience: Number of epochs to weight prior to reducing the learning rate further during model training.
+
+    """
 
     # Specify general network parameters
     hidden_dim = 256
@@ -357,16 +536,16 @@ def set_network_parameters(
 def train_network(
     device: torch.device,
     model: PILNet,
-    model_parameters: list,
+    model_parameters: list[int, int, int, torch.nn.Module],
     model_id: str,
     train_dataloader: dgl.dataloading.GraphDataLoader,
     validation_dataloader: dgl.dataloading.GraphDataLoader,
     maxtraintime: float,
-    loss_function: Callable,
-    optimizer_list: list,
-    optimizer_parameters: list,
-    scheduler_list: list,
-    scheduler_parameters: list,
+    loss_function: torch.nn.modules.loss._Loss,
+    optimizer_list: list[torch.optim.Optimizer, torch.optim.Optimizer, torch.optim.Optimizer, torch.optim.Optimizer],
+    optimizer_parameters: list[float],
+    scheduler_list: list[torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler._LRScheduler],
+    scheduler_parameters: list[float, float, float],
     bestmodel_path: str,
     monopole_weight: float,
     dipole_weight: float,
@@ -375,7 +554,69 @@ def train_network(
     model_type: str,
     model_precision: torch.dtype,
 ) -> None:
-    """Train neural network and save best model."""
+    """
+    Function for train the neural network and saving the best model.
+
+    Parameters
+    -------
+    device: torch.device
+        Either a cpu or cuda device.
+    model: PILNet
+        Initialized PILNet model.
+    model_parameters: list[int, int, int, torch.nn.Module]
+        num_node_feats: int
+            Dimension of node feature vector for each node.
+        num_edge_feats: int
+            Dimension of edge feature vector for each edge.
+        hidden_dim:
+            Number of hidden neurons in layers (width of neural network)
+        activation:
+            Non-linear activation function.   
+    model_id: str
+        Unique identifier assigned to model for the purpose of checkpointing, 
+            associated with recent timestamp.
+    train_dataloader: dgl.dataloading.GraphDataLoader
+        Object for facilitating the loading of
+            the training set data during model training.
+    validation_dataloader: dgl.dataloading.GraphDataLoader
+        Object for facilitating the loading of
+            the validation set data during model training.
+    maxtraintime: float
+        Max time elapsed (seconds) to run model training.
+            If time expires, training will end and the best model will be saved.
+    loss_function: torch.nn.modules.loss._Loss
+        Loss function used during model training.
+    optimizer_list: list[torch.optim.Optimizer, torch.optim.Optimizer, torch.optim.Optimizer, torch.optim.Optimizer]
+        Optimizers used during model training, one for each atomic multipole type.
+    optimizer_parameters: list[float]
+        Starting learning rate used by optmizer during model training.
+    scheduler_list: list[torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler._LRScheduler]
+        Learning rate scheduler used during model training, one for each multipole type.
+    scheduler_parameters list[float, float, float]
+        lr_factor: Factor by which learning rate is reduced during model training.
+        lr_threshold: Threshold used when determining newest optimal learning rate during model training.
+        lr_patience: Number of epochs to weight prior to reducing the learning rate further during model training.
+    bestmodel_path: str
+        Path to save the best trained model.
+    monopole_weight: float
+        Weight associated with the atomic monopoles for the neural network loss function.
+    dipole_weight: float
+        Weight associated with the atomic dipoles for the neural network loss function.
+    quadrupole_weight: float
+         Weight associated with the atomic quadrupoles for the neural network loss function.
+    octupole_weight: float
+         Weight associated with the atomic octupoles for the neural network loss function.
+    model_type: str
+        Whether the model is a "PINN" or Non-PINN" model.
+    model_precision: torch.dtype
+        Precision to apply to graph features and labels.
+
+
+    Returns
+    ----------
+    None
+
+    """
 
     print("Performing model training...\n", flush=True)
 
@@ -448,8 +689,8 @@ def train_network(
             else:
                 loss = (monopoles_loss + dipoles_loss + quadrupoles_loss + octupoles_loss)
 
-            # NOTE: Only computing PINN penalties for diagnostic purposes
-            # (does not affect network training)
+            # NOTE: Only computing PINN penalties for illustrative purposes
+            # (does not affect model training)
             # Choose one random graph per epoch as penalty representative
             random_graph_index = random.randint(0, bgs.batch_size - 1)
             (
@@ -690,9 +931,33 @@ def train_network(
 def validation(
     model: PILNet,
     validation_data_loader: dgl.dataloading.GraphDataLoader,
-    loss_func: Callable,
+    loss_function: torch.nn.modules.loss._Loss,
 ) -> tuple[float, float, float, float]:
-    """Evaluate validation set on model."""
+    """
+    Function for evaluating the model on the validation set.
+
+    Parameters
+    -------
+    model: PILNet
+        PILNet model (partially trained).
+    validation_data_loader: dgl.dataloading.GraphDataLoader
+        Object for facilitating the loading of
+            the validation set data during model training.
+    loss_function: torch.nn.modules.loss._Loss
+        Loss function used during model training.
+
+    Returns
+    ----------
+    epoch_monopoles_loss: float
+        Atomic monopole loss computed on the validation set.
+    epoch_dipoles_loss: float
+        Atomic dipole loss computed on the validation set.
+    epoch_quadrupoles_loss: float
+        Atomic quadrupole loss computed on the validation set.
+    epoch_octupoles_loss: float
+        Atomic octupole loss computed on the validation set.
+
+    """
 
     model.eval()
 
@@ -713,12 +978,12 @@ def validation(
         totalnumlabels += numlabels
 
         # Compute multipole-type specific loss
-        monopoles_loss = loss_func(valbgs.ndata["label_monopoles"], predlabels[:, 0:1])
-        dipoles_loss = loss_func(valbgs.ndata["label_dipoles"], predlabels[:, 1:4])
-        quadrupoles_loss = loss_func(
+        monopoles_loss = loss_function(valbgs.ndata["label_monopoles"], predlabels[:, 0:1])
+        dipoles_loss = loss_function(valbgs.ndata["label_dipoles"], predlabels[:, 1:4])
+        quadrupoles_loss = loss_function(
             valbgs.ndata["label_quadrupoles"], predlabels[:, 4:10]
         )
-        octupoles_loss = loss_func(
+        octupoles_loss = loss_function(
             valbgs.ndata["label_octupoles"], predlabels[:, 10:20]
         )
 
@@ -761,7 +1026,38 @@ def PINN_penalties(
     model_precision: torch.dtype,
     device: torch.device,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Obtain pinn penalty error for diagnostic purposes (does not impact network training)."""
+    """
+    Function to obtain PINN penalty error, for illustrative purposes (does not impact network training)."
+
+    Parameters
+    -------
+    bgs: dgl.DGLGraph
+        Grouping of batched graphs.
+    predlabels: torch.Tensor
+        Labels predicted by model.
+    random_graph_index: int
+        Random integer corresponding to a training set graph.
+    model_precision: torch.dtype
+        Precision of the model weights.
+    device: torch.device
+        Either a cpu or cuda device.
+
+    Returns
+    ----------
+    monopole_penalty_total: torch.Tensor[float]
+        Error in the atomic monopole moment predictions 
+            with respect to the monopole total charge penalty.
+    monopole_penalty_H: torch.Tensor[float]
+        Error in the atomic monopole moment predictions
+            with respect to the monopole hydrogen penalty.
+    quadrupole_penalty: torch.Tensor[float]
+        Error in the atomic quadrupole moment predictions
+            with respect to the quadrupole trace penalty.
+    octupole_penalty: torch.Tensor[float]
+        Error in the atomic octupole moment predictions
+            with respect to the quadrupole trace penalty.
+
+    """
 
     # Obtain graph specified by random_graph_index
     batch_num_nodes = bgs.batch_num_nodes()
@@ -827,6 +1123,21 @@ def PINN_penalties(
 
 
 def main(read_filepath: str, save_filepath: str):
+    """
+    Main function for training a PILNet model.
+
+    Parameters
+    ----------
+    read_filepath: str
+        Path to training and validation set files.
+    save_filepath: str
+        Path to save trained model(s).
+
+    Returns
+    -------
+    None
+
+    """
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

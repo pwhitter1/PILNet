@@ -74,7 +74,21 @@ class PILNet(nn.Module):
         self.out_restriction_oct = nn.Sequential(nn.Linear(num_node_feats, 10))
 
     def forward(self, bgs: dgl.DGLGraph) -> torch.Tensor:
-        """PILNet function for forward pass through network."""
+        """
+        PIL-Net function for forward pass through network.
+
+        Parameters
+        ----------
+        bgs: dgl.DGLGraph
+            Batched group of DGL graphs.
+
+
+        Returns
+        -------
+        torch.Tensor: Atomic multipole predictions for batch of graphs.
+
+        """
+
 
         """ (1) Monopoles """
 

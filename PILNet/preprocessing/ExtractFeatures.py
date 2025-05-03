@@ -13,6 +13,7 @@ import rdkit
 from rdkit.Chem.rdchem import HybridizationType
 from rdkit.Chem.rdchem import BondType
 
+import hashlib
 
 def getdataset(
     data: str,
@@ -21,8 +22,29 @@ def getdataset(
     unique_hybridization_list: list,
     unique_bondtype_list: list,
 ) -> None:
-    """Read in dataset information, extract features,
-    and save molecule representation as a DGL graph."""
+
+    """
+    Function to read in dataset information, extract features,
+    and save molecule representation as a DGL graph.
+
+    Parameters
+    -------
+    data: str
+        Path to dataset hdf5 file.
+    save_filepath: str
+        Path to save constructed QMDFAM graphs and formatted labels.
+    unique_element_list: list
+        Exhaustive list of elements present in the dataset.
+    unique_hybridization_list: list
+        Exhaustive list of atomic hybridization states present in the dataset.
+    unique_bondtype_list: list
+        Exhaustive list of bond types present in the dataset.
+
+    Returns
+    ----------
+    None
+
+    """
 
     print(f"\nLoading {data}", flush=True)
     h = h5py.File(data, "r")
@@ -55,8 +77,10 @@ def getdataset(
         """ Start building graph of this molecule """
         g = dgl.DGLGraph()
         smiles = h[key]["smiles"][()]  # type: ignore
+
         mol = rdkit.Chem.MolFromSmiles(smiles)  # type: ignore
         mol = rdkit.Chem.AddHs(mol)  # type: ignore
+        
 
         """ Add nodes and node features """
 
@@ -80,6 +104,11 @@ def getdataset(
         nodefeats = np.hstack((nodefeats_elementtype, nodefeats_hybridizationstate))
         num_nodes = len(elements)  # type: ignore
         g.add_nodes(num_nodes, data={"nfeats": torch.tensor(nodefeats)})
+
+        # Get the unique identifier for each molecule and give it a unique encoding
+        hash_key = int(hashlib.md5(key.encode()).hexdigest(), 16) % (2**31)
+        unique_id_list = [hash_key] * num_nodes
+        g.ndata["unique_identifier_hashed"] = torch.tensor(unique_id_list, dtype=torch.long)
 
         """ Add coordinate feature """
 
@@ -176,6 +205,7 @@ def getdataset(
         molecular_dipole_mbis = [h[key]["molecular_dipole_mbis"][()]] * num_nodes  # type: ignore
         g.ndata["molecular_dipole_mbis"] = torch.tensor(np.array(molecular_dipole_mbis))
 
+
         # Split information: Used to partition molecules into correct
         # train/val/test split as determined by dataset
         set = h[key]["set"][()]  # type: ignore
@@ -198,11 +228,26 @@ def getdataset(
     """ Save graphs to bin file """
     save_graphs(save_filepath, graphs)
 
-    print("Number of graphs: {}".format(graph_count))
+    print("Number of graphs: {}".format(len(graphs)))
 
 
 def get_one_hot(values: list, unique_values_list: list) -> np.ndarray:
-    """Apply one-hot encoding of input values"""
+    """
+    Function to apply a one-hot encoding to the input values.
+
+    Parameters
+    -------
+    values: list
+        Input values on which to apply one-hot encoding.
+    unique_values_list: list
+        Exhaustive list of categories to use to construct one-hot encoding.
+
+    Returns
+    ----------
+    onehot: np.ndarray
+        The one-hot encoded vector.
+
+    """
 
     numatoms = len(values)
     numcategories = len(unique_values_list)
@@ -223,7 +268,25 @@ def get_one_hot(values: list, unique_values_list: list) -> np.ndarray:
 
 
 def compute_mass(elem: bytes) -> float:
-    """Return mass of input element"""
+    """
+    Function to return the mass of input element.
+
+    Parameters
+    -------
+    elem: bytes
+        Atomic symbol of element.
+
+    Returns
+    ----------
+    float:
+        The mass of the intput element.
+
+    Raises
+    ------
+    ValueError:
+        If the input element is unexpected.
+
+    """
 
     if elem == b"H":
         return 1.008
@@ -243,6 +306,21 @@ def compute_mass(elem: bytes) -> float:
 
 
 def main(read_filepath: str, save_filepath: str):
+    """
+    Main function for constructing DGL graphs and formatting labels from QMDFAM dataset.
+
+    Parameters
+    ----------
+    read_filepath: str
+        Path to QMDFAM hdf5 files.
+    save_filepath: str
+        Path to save constructed QMDFAM graphs and formatted labels.
+
+    Returns
+    -------
+    None
+
+    """
 
     # Details related to QMDFAM, some derived from the RDKit library
     unique_element_list = [b"H", b"C", b"N", b"O", b"F", b"S", b"CL"]
