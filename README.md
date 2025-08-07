@@ -1,5 +1,14 @@
-# Code Repository for PIL-Net: Physics-Informed Graph Convolutional Network for Predicting Atomic Multipoles
+# Software Repository for PIL-Net: Physics-Informed Graph Convolutional Network for Predicting Atomic Multipoles
 ### This code allows for running the PIL-Net machine learning pipeline on the QM Dataset for Atomic Multipoles.
+
+Repository DOI (Version v1.0.0) https://doi.org/10.5281/zenodo.15683278.
+
+## Accompanying Publication
+
+<b>If you use this code, please cite the following publication:</b>
+
+&nbsp;&nbsp;&nbsp; Whitter, C., Pothen, A., & Clark, A. (2025). PIL-Net: A physics-informed graph convolutional network<br> 
+&nbsp;&nbsp;&nbsp; for predicting atomic multipoles. Digital Discovery, 4(8), 2198–2213. https://doi.org/10.1039/D5DD00228A
 
 ## PIL-Net Modules:
 
